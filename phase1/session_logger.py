@@ -1,6 +1,6 @@
 import database
 
-def show_programs():
+def show_programs(): # user picks one of his (possibly) multiple programs
     all_programs = database.get_programs()
 
     for num, program in all_programs:
@@ -21,7 +21,7 @@ def show_programs():
         except ValueError:
             print("Please pick the number corresponding to your chosen program!")
 
-def day_selection():
+def day_selection(): # user picks day/muscle groups from his chosen program
     p_id = show_programs()
     program = database.get_program_day(p_id)
 
@@ -46,7 +46,7 @@ def day_selection():
         else:
             print("Please enter a digit.")
 
-def log_sets(workout_id, exercises):
+def log_sets(workout_id, exercises): # user logs performance on a given exercise
     for ex in exercises:
         exercise_name = ex["name"]
         print(f"{ex["name"]}")
@@ -87,18 +87,10 @@ def log_sets(workout_id, exercises):
 
 
 def main():
-    print("Squats:")
-    print(database.check_progress("Squats"))
-    print("Leg press:")
-    print(database.check_progress("Leg Press"))
-    print("Lunges:")
-    print(database.check_progress("Lunges"))
-    print("Leg extensions:")
-    print(database.check_progress("Leg Extensions"))
-    # chosen_day, program_id, exercises = day_selection()
-    # user_id = database.get_user_id(program_id)
-    # workout_id = database.log_session(program_id, user_id, chosen_day)
-    # logs = log_sets(workout_id, exercises)
+    chosen_day, program_id, exercises = day_selection()
+    user_id = database.get_user_id(program_id)
+    workout_id = database.log_session(program_id, user_id, chosen_day)
+    logs = log_sets(workout_id, exercises)
 
 
 if __name__ == "__main__":
