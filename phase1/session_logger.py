@@ -85,7 +85,6 @@ def log_sets(workout_id, exercises): # user logs performance on a given exercise
             database.save_set(workout_id,exercise_name,set_number,reps,weight_kg,rir)
 
 
-
 def main():
     chosen_day, program_id, exercises = day_selection()
     user_id = database.get_user_id(program_id)
