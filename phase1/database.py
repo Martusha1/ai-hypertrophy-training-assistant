@@ -2,7 +2,7 @@ import sqlite3, json
 import os
 DB_PATH = os.path.join(os.path.dirname(__file__), "hypertrophy.db")
 
-def get_user_id(program_id):
+def get_user_id(program_id): # so i can pass user_id in log_session func
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
 
@@ -17,7 +17,7 @@ def get_user_id(program_id):
 
     return user_id
 
-def save_user(user):
+def save_user(user, telegram_id):
     conn = sqlite3.connect(DB_PATH)
     # opens a connection to the database; if it doesn't exist,
     # SQLite creates it
@@ -25,10 +25,10 @@ def save_user(user):
     # runs SQL statements through the connection
 
     cursor.execute("""
-        INSERT INTO users (name, age, training_experience,
+        INSERT INTO users (telegram_id, name, age, training_experience,
         training_days_per_week, session_length,
-        available_equipment, goal) VALUES (?,?,?,?,?,?,?)
-    """, (user["name"], user["age"], user["training experience"], user["training days per week"],
+        available_equipment, goal) VALUES (?,?,?,?,?,?,?,?)
+    """, (telegram_id, user["name"], user["age"], user["training experience"], user["training days per week"],
     user["session length"],user["available equipment"], user["goal"]))
 
     # sends SQL statements to DB through the cursor
@@ -57,13 +57,14 @@ def save_program(user_id, formatted_program):
 
     return cursor.lastrowid # returns program_id
 
-def get_programs():
+def get_programs(user_id): 
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
 
     cursor.execute("""
         SELECT program_id, program_name FROM program
-""")
+        WHERE user_id = ?
+""", (user_id,))
     
     all_programs = cursor.fetchall() # fetches multiple things
     conn.close()
@@ -294,6 +295,7 @@ def init_db():
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS users (
         user_id INTEGER PRIMARY KEY AUTOINCREMENT,
+        telegram_id INTEGER NOT NULL UNIQUE,
         name TEXT,
         age INTEGER NOT NULL,
         training_experience TEXT,
