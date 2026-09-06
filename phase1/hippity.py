@@ -4,8 +4,10 @@ from dotenv import load_dotenv
 load_dotenv()
 bot_token = os.getenv("TELEGRAM_BOT_TOKEN")
 
-from telegram import ForceReply, Update
+from telegram import ForceReply, Update, User, Message
 from telegram.ext import Application, CommandHandler, ContextTypes, MessageHandler, filters
+from groq import Groq
+import program_generator
 
 # update is an object that holds all data coming from Telegram
 # context is an object that holds data about the status of the library
@@ -33,6 +35,15 @@ async def info_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     in the gym strictly based on current scientific evidence. Feel free to ask about
     anything that's on your mind about muscle building and I will do my best to inform you.""")
 
+async def talk_to_llm(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    message: Message = update.effective_message
+
+    message_text = message.text
+
+    llm_response = program_generator.telegram_message_to_llm(message_text)
+
+    await update.message.reply_text(llm_response)
+
 
 
 def main():
@@ -41,6 +52,8 @@ def main():
     application.add_handler(CommandHandler("start", start_command))
     application.add_handler(CommandHandler("info", info_command))
     application.add_handler(CommandHandler("help", help_command))
+
+    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, talk_to_llm))
 
 
     application.run_polling(allowed_updates=Update.ALL_TYPES)
