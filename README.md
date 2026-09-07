@@ -2,7 +2,7 @@
 
 Hippity is an AI-powered training assistant that generates personalized hypertrophy (muscle growth) programs and helps track workout progress over time. It combines an LLM (via Groq) with a structured database of programs, sessions, and exercises, delivered through a Telegram bot and a FastAPI backend.
 
-**Status: actively in development.** The FastAPI backend, database layer, and LLM-based program generation are functional. The database now supports multiple users (each Telegram account maps to its own `user_id`). The Telegram bot responds to `/start`, `/help`, and `/info`; the remaining commands listed in `/help` (`/log`, `/progress`, `/program`, `/all_programs`, `/new_program`) are planned but not yet wired to the program generator or database.
+**Status: actively in development.** The FastAPI backend, database layer, and LLM-based program generation are functional. The database will support multiple users (each Telegram account maps to its own `user_id`). The Telegram bot responds to `/start`, `/help`, and `/info`; the remaining commands listed in `/help` (`/log`, `/progress`, `/program`, `/all_programs`, `/new_program`) are planned but not yet wired to the LLM and database.
 
 ## What it does (or is being built to do)
 
@@ -28,7 +28,7 @@ phase1/   The actual application
 - **Python**
 - **FastAPI** — backend/API layer
 - **SQLite** — data storage
-- **Groq API (openai/gpt-oss-20b)** — LLM integration for program generation
+- **Groq API (openai/gpt-oss-20b)** — LLM integration
 - **python-telegram-bot** — Telegram bot interface
 
 ## Database schema
