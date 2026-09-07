@@ -17,6 +17,24 @@ def get_user_id(program_id): # so i can pass user_id in log_session func
 
     return user_id
 
+def get_user_by_telegram_id(telegram_id):
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+
+    cursor.execute("""
+    SELECT user_id from users
+    WHERE telegram_id = ?
+""", (telegram_id,))
+
+    try:
+        user_id = cursor.fetchone()[0] # fetchone() could return (None,) if there user not yet registered
+        conn.close()
+        return user_id
+    except TypeError: # because None[0] can't run
+        print("This user is not yet registered in the database.")
+        conn.close()
+
+
 def save_user(user, telegram_id):
     conn = sqlite3.connect(DB_PATH)
     # opens a connection to the database; if it doesn't exist,
