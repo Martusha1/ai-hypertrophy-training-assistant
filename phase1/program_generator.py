@@ -181,11 +181,11 @@ My goal is {user["goal"]}. Remember the following gradual warmup: 'Warm-up for c
 
     return instruction
 
-def generate_program(system_prompt):
+def generate_program(user_profile_message):
     client = Groq(api_key=groq_key)
 
     response = client.chat.completions.create(model="openai/gpt-oss-20b",
-    messages=[{"role": "user", "content": system_prompt}])
+    messages=[{"role": "user", "content": user_profile_message}])
     
     return response.choices[0].message.content
 
@@ -234,6 +234,14 @@ def telegram_message_to_llm(chat_history):
 
     response = client.chat.completions.create(model="openai/gpt-oss-20b", messages=chat_history)
 
+    return response.choices[0].message.content
+
+def handle_register_message(register_message):
+    client = Groq(api_key=groq_key)
+    
+    response = client.chat.completions.create(model="openai/gpt-oss-20b",
+    messages=register_message)
+        
     return response.choices[0].message.content
 
 
