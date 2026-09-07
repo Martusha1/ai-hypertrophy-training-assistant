@@ -5,7 +5,7 @@ load_dotenv()
 bot_token = os.getenv("TELEGRAM_BOT_TOKEN")
 
 from telegram import ForceReply, Update, User, Message
-from telegram.ext import Application, CommandHandler, ContextTypes, MessageHandler, filters
+from telegram.ext import Application, CommandHandler, ContextTypes, MessageHandler, filters, CallbackContext
 from groq import Groq
 import program_generator
 
@@ -36,13 +36,27 @@ async def info_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     anything that's on your mind about muscle building and I will do my best to inform you.""")
 
 async def talk_to_llm(update: Update, context: ContextTypes.DEFAULT_TYPE):
+
     message: Message = update.effective_message
+    
+    user_message_text = {"role": "user", "content": message.text} # underline which messages are from the user by following LLM call shape
+    
+    chat_history = context.chat_data
+    if bool(chat_history) == True:
+        pass
+    else: # if no chat history yet, then create a key that will store all messages as a list
+        chat_history["history"] = [] # preparing the history to be a list of dicts
+    chat_history["history"].append(user_message_text)
+    
+    llm_response = program_generator.telegram_message_to_llm(chat_history["history"])
+    llm_message_text = {"role": "assistant", "content": llm_response} # underline which messages are from the LLM
 
-    message_text = message.text
-
-    llm_response = program_generator.telegram_message_to_llm(message_text)
+    chat_history["history"].append(llm_message_text)
 
     await update.message.reply_text(llm_response)
+
+async def register_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    pass
 
 
 
