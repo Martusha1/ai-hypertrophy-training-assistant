@@ -1,6 +1,6 @@
 # Hippity — AI Hypertrophy Training Assistant
 
-Hippity is an AI-powered training assistant that generates personalized hypertrophy (muscle growth) programs and helps track workout progress over time. It combines an LLM (via Groq) with a structured SQLite database of users, programs, and sessions, delivered primarily through a Telegram bot.
+Hippity is an AI-powered training assistant that generates personalized hypertrophy (muscle growth) programs and helps track workout progress over time. It combines an LLM (via Groq) with a structured database of programs, sessions, and exercises, delivered through a Telegram bot and a FastAPI backend.
 
 **Status: actively in development.** The Telegram bot is the main, actively-developed interface. It supports multi-user registration (via natural-language profile extraction, not a rigid form), general conversation with per-chat memory, and is being wired up to actually save profiles and generate programs end-to-end. A separate FastAPI backend also exists but is currently a standalone secondary interface, not something the bot depends on at runtime — see "Two separate entry points" below.
 
@@ -13,11 +13,11 @@ Hippity is an AI-powered training assistant that generates personalized hypertro
 - Separately exposes some of that same data over a small FastAPI backend (endpoints to fetch programs, check exercise progress, log sessions)
 
 ## Two separate entry points
-
+ 
 Hippity is really two independent programs sharing one SQLite database — they are **not** connected to each other at runtime, and only one (`hippity.py`) is part of the live user-facing flow right now:
-
+ 
 **`hippity.py`** — the Telegram bot. This is what a user actually talks to. Run with `python3 hippity.py` from inside `phase1/`. All of its logic — commands, conversation, registration — talks directly to `database.py`.
-
+ 
 **`main.py`** — a FastAPI backend exposing a few endpoints (`/programs`, `/progress/{exercise_name}`, `/session/log/{program_id}/{user_id}/{day_number}`) over the same database. It was built during Phase 2 as a FastAPI learning exercise and demonstrates the same data being served over HTTP, but the bot never calls it — nothing currently connects the two. Run separately with `uvicorn phase1.main:app --reload` from the repo root, if you want to explore it via its interactive docs at `/docs`. (Known issue: `/programs` currently calls `database.get_programs()` without the `user_id` argument the function now requires, so that endpoint will error until fixed.)
 
 ## Project structure
@@ -26,17 +26,18 @@ Hippity is really two independent programs sharing one SQLite database — they 
 phase0/   Early standalone scripts — first steps with core training math (1RM, volume, progression logic) and a first LLM API call
 phase1/   The actual application
   ├─ database.py           SQLite data layer (users, programs, sessions, exercises) — multi-user aware via telegram_id
-  ├─ program_generator.py  All LLM calls live here (Groq client, prompts, JSON parsing) — kept independent of Telegram-specific code
+  ├─ program_generator.py  Builds prompts and calls the LLM to generate a training program
   ├─ main.py                FastAPI app exposing some backend data as HTTP endpoints (see above — not wired to the bot)
-  └─ hippity.py             The Telegram bot — commands, routing, conversation memory, and the registration flow
+  ├─ hippity.py             Telegram bot — /start, /help, /info implemented; other commands planned
+  └─ session_logger.py      CLI script for logging a workout session
 ```
 
 ## Tech stack
 
 - **Python**
-- **python-telegram-bot** — Telegram bot interface (the primary, live interface)
-- **Groq API** (currently `openai/gpt-oss-20b`) — LLM integration for both conversation and structured profile/program extraction
 - **SQLite** — data storage
+- **Groq API** (currently `openai/gpt-oss-20b`) — LLM integration for both conversation and structured profile/program extraction
+- **python-telegram-bot** — Telegram bot interface
 - **FastAPI** — a secondary, currently standalone API layer over the same database
 
 ## Database schema
@@ -46,12 +47,12 @@ phase1/   The actual application
 - `workout_sessions` — one row per logged training session, linked to both `program` and `users`
 - `logged_sets` — one row per logged set within a session, linked to `workout_sessions`
 
-## How the Telegram bot works
-
+# How the Telegram bot works
+ 
 `hippity.py` routes every incoming plain-text message through `router_func`, which checks whether the current chat is mid-registration (a flag stored in `context.chat_data`) and sends it to either the registration handler or general chat accordingly.
-
+ 
 **Registration (`/register`):** checks whether this Telegram user already exists in the database; if not, starts a natural-language intake — the user describes themselves in one or more messages, and each reply is sent to the LLM along with what's already been extracted so far, asking it to return updated structured JSON plus a list of any still-missing fields and a natural follow-up question. This loops until the profile is complete. *(Currently: extraction and the missing-field follow-up loop work; saving the completed profile to the database and generating the first program is the piece actively being finished.)*
-
+ 
 **General chat:** any message outside registration goes to the LLM with the full conversation history for that chat (stored in-memory in `context.chat_data["history"]`, a growing list of `{"role", "content"}` messages) so replies have context. This resets if the bot process restarts — persisting it to the database is a known future improvement, not yet done.
 
 ## Running it locally
