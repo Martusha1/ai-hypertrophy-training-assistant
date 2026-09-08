@@ -84,14 +84,16 @@ async def fill_user_profile(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     message: Message = update.effective_message
 
-    registration_history = context.chat_data["registration"]
+    # dict for keeping track of already registered/ missing data
+    registrated_user_data = context.chat_data["registration"]
 
-    user_message_text = {"role": "user", "content": f"Known so far: {registration_history}. Newest reply: {message.text}"}
+    # user message now contains user's newest reply + profile info he may have already given in a previous reply that still needs correction
+    user_message_text = {"role": "user", "content": f"Known so far: {registrated_user_data}. Newest reply: {message.text}"}
     
     llm_response_behaviour = """Act as the user's personal coach in his/hers fitness-journey that \
     specializes in hypertrophy training. You will create a training program according to the user's needs, \
-    characteristics and goals by extracting his profile information from his message. \
-    Your answer should produce a JSON that follows the following structure::
+    characteristics and goals by first and foremost extracting his profile information from his message. \
+    Your answer should produce a JSON string that follows the following structure:
     {
         "name": name of the user in string,
         "age": age of the user in string,
@@ -103,26 +105,34 @@ async def fill_user_profile(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "missing_fields": keep a list of all keys here that you believe the user hasn't given a clear answer to
         "follow_up_message": Your follow up message in case some input is missing
     }
-    All fields that you believe can't be filled, should have their value set to None. Return only the JSON. \
-    Ensure the JSON is valid and complete. Double-check all brackets and braces are closed." No explanation, \
-    no commentary before or after."""
+    All fields that you believe can't be filled based on the user's input, should have their value set to None. \
+    Return only the JSON. Ensure the JSON is valid and complete. Double-check all brackets and braces are closed. \
+    No explanation, no commentary before or after."""
 
     llm_context = {"role": "system", "content": llm_response_behaviour}
 
     messages = [llm_context, user_message_text]
 
-    raw_json_program = program_generator.handle_register_message(messages)
+    raw_json_profile = program_generator.handle_register_message(messages)
 
     try:
-        formatted_program = json.loads(raw_json_program)
+        formatted_profile = json.loads(raw_json_profile)
     except ValueError:
         print("JSON is probably faulty.")
         return None
 
-    for field in formatted_program.values():
-        if field == None:
-            await update.message.reply_text(formatted_program["follow_up_message"])
+    # update registered user data
+    for key, value in formatted_profile.items():
+        if key in ["missing_fields", "follow_up_message"]:
+            continue
+        if value != None:
+            registrated_user_data[f"{key}"] = value
 
+    if formatted_profile["missing_fields"]:
+        await update.message.reply_text(f"{formatted_profile["follow_up_message"]}")
+    else:
+        await update.message.reply_text("""Profile info extraction done. Please review \
+        your data and use /yes if you approve it and /no if something is wrong.""")
 
 
 async def router_func(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -130,6 +140,19 @@ async def router_func(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await fill_user_profile(update, context)
     else:
         await talk_to_llm(update, context)
+
+async def cancel_command(update: Update, context: ContextTypes.DEFAULT_TYPE): # if the user wants to stop registrating
+    if "registration" in context.chat_data:
+        del context.chat_data["registration"]
+        await update.message.reply_text("Registration canceled!")
+    else:
+        await update.message.reply_text("You haven't begun registrating, therefore nothing to cancel, my dear friend!")
+
+async def yes_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    pass
+
+async def no_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    pass
 
 
 
@@ -140,6 +163,9 @@ def main():
     application.add_handler(CommandHandler("info", info_command))
     application.add_handler(CommandHandler("help", help_command))
     application.add_handler(CommandHandler("register", register_command))
+    application.add_handler(CommandHandler("cancel", cancel_command))
+    application.add_handler(CommandHandler("yes", yes_command))
+    application.add_handler(CommandHandler("no", no_command))
 
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, router_func))
 
