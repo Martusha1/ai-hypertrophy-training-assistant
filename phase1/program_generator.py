@@ -189,14 +189,10 @@ def generate_program(user_profile_message):
     
     return response.choices[0].message.content
 
-def save_program(p):
-    with open("llm_response.txt", "w") as f:
-        f.write(p)
-
 def parse_and_display_program(p):
     try:
         formatted_p = json.loads(p)
-    except ValueError:
+    except ValueError: # LLM sometimes fails to deliver raw JSON
         print("JSON is probably faulty.")
         return None
     
@@ -208,7 +204,7 @@ def parse_and_display_program(p):
         print(f"Day: {day["day"]}")
         
         for muscle in day["muscles_targeted"]:
-            print(f"{muscle} ", end="")
+            print(f"{muscle} ", end="") # prevents newline when several muscles get printed
         
         print("\nWarmup:")
         for drill in day["warmup"]:
@@ -219,7 +215,7 @@ def parse_and_display_program(p):
             print(f"{exercise["name"]}:")
             print(f"{exercise["sets"]} sets X {exercise["reps"]} reps")
 
-        print("Cooldown")
+        print("Cooldown:")
         for info in day["cooldown"]:
             print(f"- {info}")
         
