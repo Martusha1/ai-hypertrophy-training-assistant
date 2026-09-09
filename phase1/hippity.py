@@ -14,27 +14,31 @@ import program_generator, database
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # possible first message for when user opens bot for the first time
     await update.message.reply_text("""Hello there, friend! How can I help with your training? \
-    Please refer to /help if you want a brief outlook on what I can do.""")
+Please refer to /help if you want a brief outlook on what I can do.""")
 
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("""Here are all commands you can use in Hippity:
-    /start : activates Hippity
-    /help : lists all possible commands in Hippity
-    /register: introduce yourself to Hippity (only for new users)
-    /info : describes Hippity's purpose
-    /log : allows you to log your workout data
-    /progress <exercise> : checks for progression in an exercise of your choice
-    /program : show the current program you follow
-    /my_programs: lists all your programs
-    /new_program : Hippity generates a new program based on your needs""")
+/start : activates Hippity
+/help : lists all possible commands in Hippity
+/info : describes Hippity's purpose
+/register: start registration process (only for new users)
+/fill_user_profile: tell Hippity more about yourself (use after /register)
+/yes: approves profile extraction results or a new program
+/no: denies extracted profile details or a new program and asks for correction
+/program : shows the current program you follow
+/my_programs: lists all your programs
+/new_program : Hippity generates a new program based on your needs
+/log : allows you to log your workout session details (sets, reps, RIR)
+/progress <exercise> : checks if progressive overload is achieved in an exercise of your choice
+""")
 
 # summarizes the bot's purpose in short
 async def info_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("""Hi! My name is Hippity and I am your personal \
-    AI-powered hypertrophy assistant! I can hold records of your workout data and \
-    analyze trends within your performance to help you overcome your current challenges \
-    in the gym strictly based on current scientific evidence. Feel free to ask about \
-    anything that's on your mind about muscle building and I will do my best to inform you.""")
+AI-powered hypertrophy assistant! I can hold records of your workout data and \
+analyze trends within your performance to help you overcome your current challenges \
+in the gym strictly based on current scientific evidence. Feel free to ask about \
+anything that's on your mind about muscle building and I will do my best to inform you.""")
 
 async def talk_to_llm(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
@@ -59,25 +63,25 @@ async def talk_to_llm(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def register_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     user = update.effective_user # will pass the the user that sent any update
-    user_id = user.id # extract id from user object
+    telegram_id = user.id # extract id from user object
 
     chat_history = context.chat_data
 
-    if isinstance(database.get_user_by_telegram_id(user_id),int):
+    if isinstance(database.get_user_by_telegram_id(telegram_id),int):
         await update.message.reply_text("""You're already registered!
         Use /changeprofile to update your info, or /program to see the current program you follow.""")
     else:
         chat_history["registration"] = {} # for signalling that chat is mid-registration
-        await update.message.reply_text("""I am Hippity and I will gladly help in \
-                achieving all of your fitness goals. Since you're new here, let's start by generating \
-                your first training programs based on your profile. Please answer the following questions:
-                What's your name?
-                How old are you?
-                What is your training experience?
-                How many days would you like to train per week?
-                How long would you like your workouts to be?
-                What equipment do you have available?
-                What is your goal?""")
+        await update.message.reply_text("""I am Hippity and I will gladly help in\
+    achieving all of your fitness goals. Since you're new here, let's start by generating \
+    your first training programs based on your profile. Please answer the following questions:
+    What's your name?
+    How old are you?
+    What is your training experience?
+    How many days would you like to train per week?
+    How long would you like your workouts to be?
+    What equipment do you have available?
+    What is your goal?""")
 
     
 async def fill_user_profile(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -97,7 +101,8 @@ async def fill_user_profile(update: Update, context: ContextTypes.DEFAULT_TYPE):
     {
         "name": name of the user in string,
         "age": age of the user in string,
-        "training experience": you decide whether Beginner/Intermediate/Advanced based on user's message,  
+        "training experience": you decide whether Beginner/Intermediate/Advanced based on user's message \
+        (consistent lifting for < 1 year is Beginner, 1-2 years is Intermediate, > 3 years is Advanced),  
         "training days per week": 1 to 7,
         "session length": in minutes,
         "available equipment": gym/dumbbells only/ bodyweight only etc.,
@@ -133,7 +138,10 @@ async def fill_user_profile(update: Update, context: ContextTypes.DEFAULT_TYPE):
     else:
         await update.message.reply_text("""Profile info extraction done. Please review \
         your data and use /yes if you approve it and /no if something is wrong.""")
-
+        for key, value in formatted_profile.items():
+            if key in ["missing_fields", "follow_up_message"]:
+                continue
+            await update.message.reply_text(f"{key}: {value}")
 
 async def router_func(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if "registration" in context.chat_data: # user can fill his profile data only if /register was used in prior
@@ -141,7 +149,7 @@ async def router_func(update: Update, context: ContextTypes.DEFAULT_TYPE):
     else:
         await talk_to_llm(update, context)
 
-async def cancel_command(update: Update, context: ContextTypes.DEFAULT_TYPE): # if the user wants to stop registrating
+async def cancel_command(update: Update, context: ContextTypes.DEFAULT_TYPE): # in case the user wants to stop registrating
     if "registration" in context.chat_data:
         del context.chat_data["registration"]
         await update.message.reply_text("Registration canceled!")
@@ -149,10 +157,35 @@ async def cancel_command(update: Update, context: ContextTypes.DEFAULT_TYPE): # 
         await update.message.reply_text("You haven't begun registrating, therefore nothing to cancel, my dear friend!")
 
 async def yes_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    pass
+
+    if "registration" in context.chat_data: # mid-registration check
+        registrated_data = context.chat_data["registration"]
+        for key, value in registrated_data.items(): # check if user entered /yes before profile is complete
+            if key in ["missing_fields", "follow_up_message"]:
+                continue
+            if value is None:
+                await update.message.reply_text("""Please use this command to approve your registrated data only after \
+                it's all been fully recorded. Check my last follow up message.""")
+                return
+
+        user = update.effective_user
+        telegram_id = user.id
+        database.save_user(context.chat_data["registration"], telegram_id)
+        del context.chat_data["registration"]
+        await update.message.reply_text("""Your data has been successfuly saved! If you want me to draft a \
+        personal training program according to your current profile, please write /new_program.""")
+    else:
+        await update.message.reply_text("""This command is only intended for approval of a \
+        newly generated program or update in user profile data.""")
+
 
 async def no_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    pass
+    if "registration" in context.chat_data:
+        await update.message.reply_text("Please point out what exactly needs to be added or corrected to your data. \
+        You can also use /cancel to terminate the entire registration process.")
+    else:
+        await update.message.reply_text("""This command is only intended for denial of a \
+        newly generated program or update in user profile data.""")
 
 
 
