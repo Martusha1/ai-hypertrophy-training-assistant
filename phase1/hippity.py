@@ -69,15 +69,14 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 /progress <exercise> : checks if progressive overload is achieved in an exercise of your choice
 """)
 
-# summarizes the bot's purpose in short
-async def info_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def info_command(update: Update, context: ContextTypes.DEFAULT_TYPE): # summarizes the bot's purpose in short
     await update.message.reply_text("""Hi! My name is Hippity and I am your personal \
 AI-powered hypertrophy assistant! I can hold records of your workout data and \
 analyze trends within your performance to help you overcome your current challenges \
 in the gym strictly based on current scientific evidence. Feel free to ask about \
 anything that's on your mind about muscle building and I will do my best to inform you.""")
 
-async def talk_to_llm(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def talk_to_llm(update: Update, context: ContextTypes.DEFAULT_TYPE): # processes free text messages from the user
 
     message: Message = update.effective_message
     
@@ -94,7 +93,7 @@ async def talk_to_llm(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     await update.message.reply_text(llm_response)
 
-async def register_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def register_command(update: Update, context: ContextTypes.DEFAULT_TYPE): # initializes register process
 
     user = update.effective_user # will pass the the user that sent any update
     telegram_id = user.id # extract id from user object
@@ -117,7 +116,7 @@ Use /changeprofile to update your info, or /program to see the current program y
     What equipment do you have available?
     What is your goal?""")
     
-async def fill_user_profile(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def fill_user_profile(update: Update, context: ContextTypes.DEFAULT_TYPE): # extracts user profile data
     
     message: Message = update.effective_message
 
@@ -182,14 +181,14 @@ async def router_func(update: Update, context: ContextTypes.DEFAULT_TYPE):
     else:
         await talk_to_llm(update, context)
 
-async def cancel_command(update: Update, context: ContextTypes.DEFAULT_TYPE): # in case the user wants to stop registrating
+async def cancel_command(update: Update, context: ContextTypes.DEFAULT_TYPE): # stops the registration process
     if "registration" in context.chat_data:
         del context.chat_data["registration"]
         await update.message.reply_text("Registration canceled!")
     else:
         await update.message.reply_text("You haven't begun registrating, therefore nothing to cancel, my dear friend!")
 
-async def yes_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def yes_command(update: Update, context: ContextTypes.DEFAULT_TYPE): # approves saving user profile data or new programs
 
     if "registration" in context.chat_data: # mid-registration check
         registrated_data = context.chat_data["registration"]
@@ -211,7 +210,7 @@ async def yes_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("""This command is only intended for approval of a \
         newly generated program or update in user profile data.""")
 
-async def no_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def no_command(update: Update, context: ContextTypes.DEFAULT_TYPE): # denies saving user profile data or new programs
     if "registration" in context.chat_data:
         await update.message.reply_text("Please point out what exactly needs to be added or corrected to your data. \
         You can also use /cancel to terminate the entire registration process.")
@@ -220,13 +219,7 @@ async def no_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         newly generated program or update in user profile data.""")
 
 async def new_program(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user = update.effective_user # will pass the the user that sent any update
-    telegram_id = user.id # extract id from user object
-    
-    chat_history = context.chat_data
-    
-    if isinstance(database.get_user_by_telegram_id(telegram_id),int):
-        pass
+    pass
 
 async def my_programs(update: Update, context: ContextTypes.DEFAULT_TYPE):
     pass
