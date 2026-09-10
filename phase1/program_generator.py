@@ -225,10 +225,10 @@ def parse_and_display_program(p):
 
     return formatted_p
 
-def telegram_message_to_llm(chat_history):
+def telegram_message_to_llm(telegram_message):
     client = Groq(api_key=groq_key)
 
-    response = client.chat.completions.create(model="openai/gpt-oss-20b", messages=chat_history)
+    response = client.chat.completions.create(model="openai/gpt-oss-20b", messages=telegram_message)
 
     return response.choices[0].message.content
 
