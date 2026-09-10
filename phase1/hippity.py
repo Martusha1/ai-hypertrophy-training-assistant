@@ -12,13 +12,47 @@ import program_generator, database
 # update is an object that holds all data coming from Telegram
 # context is an object that holds data about the status of the library
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    # possible first message for when user opens bot for the first time
+
+    llm_behaviour = {"role": "system", "content": """You are Hippity, a Telegram-based chatbot \
+Act as the user's personal coach in his/her fitness-journey. You specialize in hypertrophy training. \
+You can create training programs according to the user's needs, characteristics and goals. \
+Be direct, evidence-based, no fluff, no hype, but also not condescending, and \
+comfortable saying 'the research isn't clear on this' rather than faking certainty. Skip motivational filler \
+unless the user expresses discouragement. You don't have to act numb to show seriousness, so show kindness and \
+empathy when needed. Cite relevant research or established scientific consensus where applicable. \
+If evidence is limited or conflicting, say so. Don't validate bad practices to be polite. You are capable of \
+the following commands (which the user can find through /help):
+/start : gives the typical hello message when the user starts the bot for the first time (that's why it's not included \
+in /help)
+/help : lists all your possible commands
+/info : describes your purpose in a brief text for the user
+/register: starts registration process (only for new users)
+/fill_user_profile: prompts the user to enter the profile extractions process (only to be used after /register was commenced once)
+/yes: approves profile extraction results or a new program (only when user is mid-registration or mid-review of a new program)
+/no: denies extracted profile details or a new program and asks for correction (only when user is mid-registration or mid-review of a new program)
+/program : shows the current program the user follows
+/my_programs: lists all user programs
+/new_program : you generate a new program based on the user's current profile
+/log : allows the user to log his/her workout session details (sets, reps, RIR)
+/progress <exercise> : checks if progressive overload is achieved in an exercise of user's choice
+If the user wants to do anything that the commands already do, please point him/her towards using the commands ONLY since \
+the features don't work if users initialize them in freely through a text message because this is not yet supported."""}
+
+    chat_history = context.chat_data
+    if "history" in chat_history:
+        await update.message.reply_text("Hello there, friend! How can I help with your training? \
+Please refer to /help if you want a brief outlook on what I can do.")
+        return
+    else:
+        chat_history["history"] = []
+        chat_history["history"].append(llm_behaviour)
+
+    # message when user opens bot for the first time
     await update.message.reply_text("""Hello there, friend! How can I help with your training? \
 Please refer to /help if you want a brief outlook on what I can do.""")
 
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("""Here are all commands you can use in Hippity:
-/start : activates Hippity
 /help : lists all possible commands in Hippity
 /info : describes Hippity's purpose
 /register: start registration process (only for new users)
@@ -47,10 +81,6 @@ async def talk_to_llm(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_message_text = {"role": "user", "content": message.text} # underline which messages are from the user by following LLM call shape
     
     chat_history = context.chat_data
-    if bool(chat_history) == True:
-        pass
-    else: # if no chat history yet, then create a key that will store all messages as a list
-        chat_history["history"] = [] # preparing the history to be a list of dicts
     chat_history["history"].append(user_message_text)
     
     llm_response = program_generator.telegram_message_to_llm(chat_history["history"])
@@ -68,8 +98,8 @@ async def register_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_history = context.chat_data
 
     if isinstance(database.get_user_by_telegram_id(telegram_id),int):
-        await update.message.reply_text("""You're already registered!
-        Use /changeprofile to update your info, or /program to see the current program you follow.""")
+        await update.message.reply_text("""You're already registered! \
+Use /changeprofile to update your info, or /program to see the current program you follow.""")
     else:
         chat_history["registration"] = {} # for signalling that chat is mid-registration
         await update.message.reply_text("""I am Hippity and I will gladly help in\
@@ -82,7 +112,6 @@ async def register_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     How long would you like your workouts to be?
     What equipment do you have available?
     What is your goal?""")
-
     
 async def fill_user_profile(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
@@ -178,7 +207,6 @@ async def yes_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("""This command is only intended for approval of a \
         newly generated program or update in user profile data.""")
 
-
 async def no_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if "registration" in context.chat_data:
         await update.message.reply_text("Please point out what exactly needs to be added or corrected to your data. \
@@ -187,7 +215,18 @@ async def no_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("""This command is only intended for denial of a \
         newly generated program or update in user profile data.""")
 
+async def new_program(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user = update.effective_user # will pass the the user that sent any update
+    telegram_id = user.id # extract id from user object
+    
+    chat_history = context.chat_data
+    
+    if isinstance(database.get_user_by_telegram_id(telegram_id),int):
+        pass
 
+
+async def my_programs(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    pass
 
 def main():
     application = Application.builder().token(bot_token).build()
