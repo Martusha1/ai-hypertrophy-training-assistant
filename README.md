@@ -82,7 +82,6 @@ phase1/   The actual application
 
 ## Roadmap
 
-- [ ] Add a system prompt to general chat establishing Hippity's identity and command list, so it can accurately describe itself instead of responding with no grounding
 - [ ] Build `/new_program`: generate a program from a saved profile via `build_system_prompt()`/`generate_program()` and save it with `database.save_program()`generation + preview of all user programs
 - [ ] Add `/changeprofile` — same free-text extraction approach as registration, but seeded with the user's existing profile and requiring a preview/confirm step before overwriting
 - [ ] Persist conversation history to the database so it survives a bot restart
