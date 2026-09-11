@@ -34,7 +34,6 @@ def get_user_by_telegram_id(telegram_id):
         print("This user is not yet registered in the database.")
         conn.close()
 
-
 def save_user(user, telegram_id):
     conn = sqlite3.connect(DB_PATH)
     # opens a connection to the database; if it doesn't exist,
@@ -58,6 +57,30 @@ def save_user(user, telegram_id):
     # closes the connection
 
     return cursor.lastrowid # gives back the ID that SQLite auto-generated after an INSERT
+
+def get_user_profile(user_id):
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+
+    cursor.execute("""
+SELECT * from users
+WHERE user_id = ?
+""", (user_id,))
+    
+    row = cursor.fetchone()
+
+    user_dict = {}
+    user_dict["name"] = row[2]
+    user_dict["age"] = row[3]
+    user_dict["training experience"] = row[4]
+    user_dict["training days per week"] = row[5]
+    user_dict["session length"] = row[6]
+    user_dict["available equipment"] = row[7]
+    user_dict["goal"] = row[8]
+
+    conn.close()
+
+    return user_dict
 
 def save_program(user_id, formatted_program):
     conn = sqlite3.connect(DB_PATH)
