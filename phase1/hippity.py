@@ -54,6 +54,12 @@ def init_chat_history(chat_history): # makes the frequent check if "history" exi
         chat_history["history"] = []
         chat_history["history"].append(llm_behaviour)
 
+def init_program_history(program_history):
+    if "programs" in program_history:
+        return
+    else:
+        program_history["programs"] = []
+
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("""Here are all commands you can use in Hippity:
 /help : lists all possible commands in Hippity
@@ -190,14 +196,20 @@ async def cancel_command(update: Update, context: ContextTypes.DEFAULT_TYPE): # 
 
 async def yes_command(update: Update, context: ContextTypes.DEFAULT_TYPE): # approves saving user profile data or new programs
 
+    if "programs" in context.chat_data:
+        await database.save_program(context.chat_data["programs"])
+        await update.message.reply_text("""Your new program has been saved. Use '/program' \
+to preview your current program.""")
+        del context.chat_data["programs"]
+
     if "registration" in context.chat_data: # mid-registration check
         registrated_data = context.chat_data["registration"]
         for key, value in registrated_data.items(): # check if user entered /yes before profile is complete
             if key in ["missing_fields", "follow_up_message"]:
                 continue
             if value is None:
-                await update.message.reply_text("""Please use this command to approve your registrated data only after \
-                it's all been fully recorded. Check my last follow up message.""")
+                await update.message.reply_text("""Please use this command to approve your registrated data \
+only after it's all been fully recorded.""")
                 return
 
         user = update.effective_user
@@ -211,6 +223,13 @@ async def yes_command(update: Update, context: ContextTypes.DEFAULT_TYPE): # app
         newly generated program or update in user profile data.""")
 
 async def no_command(update: Update, context: ContextTypes.DEFAULT_TYPE): # denies saving user profile data or new programs
+
+    if "programs" in context.chat_data:
+        await update.message.reply_text("""Please tell me exactly what you didn't like in the last \
+program so I can propose something more suitable for your needs. For a new program please use \
+'new_program' again.""")
+        return
+
     if "registration" in context.chat_data:
         await update.message.reply_text("Please point out what exactly needs to be added or corrected to your data. \
         You can also use /cancel to terminate the entire registration process.")
@@ -219,7 +238,64 @@ async def no_command(update: Update, context: ContextTypes.DEFAULT_TYPE): # deni
         newly generated program or update in user profile data.""")
 
 async def new_program(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    pass
+
+    telegram_id = update.effective_user.id
+    user_id = database.get_user_by_telegram_id(telegram_id)
+
+    if user_id is None:
+        await update.message.reply_text("""You haven't registered yet. Please use /register to start \
+the registration process and tell Hippity more about yourself.""")
+    else:
+        user_profile = database.get_user_profile(user_id)
+
+        llm_program_generation_instruction = [{"role": "system", "content": program_generator.build_system_prompt(user_profile)}]
+
+        program_history = context.chat_data
+        init_program_history(program_history)
+
+        program = program_generator.generate_program(llm_program_generation_instruction)
+        program_history["programs"].append(program)
+
+        await update.message.reply_text("""Your new program is done. Please review it \
+and let me know if I should save it by writing '/yes' or '/no' if you would like a new one.""")
+        
+        await parse_and_display_program(update, context, program)
+
+async def parse_and_display_program(update: Update, context: ContextTypes.DEFAULT_TYPE, program):
+    try:
+        formatted_p = json.loads(program)
+    except ValueError: # LLM sometimes fails to deliver raw JSON
+        print("JSON is probably faulty.")
+        return None
+    
+    await update.message.reply_text(formatted_p["program_name"])
+    await update.message.reply_text(f"Weeks: {formatted_p["weeks"]}")
+
+    for day in formatted_p["days"]: # loops only needed for lists
+        
+        await update.message.reply_text(f"Day: {day["day"]}")
+        
+        for muscle in day["muscles_targeted"]:
+            await update.message.reply_text(f"{muscle} ", end="") # prevents newline when several muscles get printed
+        
+        await update.message.reply_text("\nWarmup:")
+        for drill in day["warmup"]:
+            await update.message.reply_text(f"- {drill}")
+        
+        await update.message.reply_text("Exercises:")
+        for exercise in day["exercises"]:
+            await update.message.reply_text(f"{exercise["name"]}:")
+            await update.message.reply_text(f"{exercise["sets"]} sets X {exercise["reps"]} reps")
+
+        await update.message.reply_text("Cooldown:")
+        for info in day["cooldown"]:
+            await update.message.reply_text(f"- {info}")
+        
+        await update.message.reply_text("Technique notes:")
+        for ex_name, cue  in day["technique_notes"].items():
+            await update.message.reply_text(f"- {ex_name}: {cue}")
+
+    return formatted_p
 
 async def my_programs(update: Update, context: ContextTypes.DEFAULT_TYPE):
     pass
