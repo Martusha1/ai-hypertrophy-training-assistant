@@ -194,6 +194,9 @@ async def cancel_command(update: Update, context: ContextTypes.DEFAULT_TYPE): # 
     else:
         await update.message.reply_text("You haven't begun registrating, therefore nothing to cancel, my dear friend!")
 
+        if "programs" in context.chat_data:
+            del context.chat_data["programs"]
+
 async def yes_command(update: Update, context: ContextTypes.DEFAULT_TYPE): # approves saving user profile data or new programs
 
     if "programs" in context.chat_data:
@@ -259,43 +262,46 @@ the registration process and tell Hippity more about yourself.""")
         await update.message.reply_text("""Your new program is done. Please review it \
 and let me know if I should save it by writing '/yes' or '/no' if you would like a new one.""")
         
-        await parse_and_display_program(update, context, program)
+        display_ready_program = parse_and_display_program(update, context, program)
+        await update.message.reply_text(display_ready_program)
+
 
 async def parse_and_display_program(update: Update, context: ContextTypes.DEFAULT_TYPE, program):
     try:
         formatted_p = json.loads(program)
     except ValueError: # LLM sometimes fails to deliver raw JSON
-        print("JSON is probably faulty.")
-        return None
-    
-    await update.message.reply_text(formatted_p["program_name"])
-    await update.message.reply_text(f"Weeks: {formatted_p["weeks"]}")
+        await update.message.reply_text("""There was an error generating your program. \
+Please try again by using '/new_program' again.""")
+        return
+
+    program_message = formatted_p["program_name"]
+    program_message += f"\nWeeks: {formatted_p["weeks"]}\n"
 
     for day in formatted_p["days"]: # loops only needed for lists
         
-        await update.message.reply_text(f"Day: {day["day"]}")
+        program_message += f"Day: {day["day"]}\n"
         
         for muscle in day["muscles_targeted"]:
-            await update.message.reply_text(f"{muscle} ", end="") # prevents newline when several muscles get printed
+            program_message += f"{muscle} " # prevents newline when several muscles get printed
         
-        await update.message.reply_text("\nWarmup:")
+        program_message += "\nWarmup:"
         for drill in day["warmup"]:
-            await update.message.reply_text(f"- {drill}")
+            program_message += f"- {drill}\n"
         
-        await update.message.reply_text("Exercises:")
+        program_message += "Exercises:\n"
         for exercise in day["exercises"]:
-            await update.message.reply_text(f"{exercise["name"]}:")
-            await update.message.reply_text(f"{exercise["sets"]} sets X {exercise["reps"]} reps")
+            program_message += f"{exercise["name"]}:"
+            program_message += f"{exercise["sets"]} sets X {exercise["reps"]} reps\n"
 
-        await update.message.reply_text("Cooldown:")
+        program_message += "Cooldown:\n"
         for info in day["cooldown"]:
-            await update.message.reply_text(f"- {info}")
+            program_message += f"- {info}\n"
         
-        await update.message.reply_text("Technique notes:")
+        program_message += "Technique notes:\n"
         for ex_name, cue  in day["technique_notes"].items():
-            await update.message.reply_text(f"- {ex_name}: {cue}")
+            program_message += f"- {ex_name}: {cue}\n"
 
-    return formatted_p
+    return program_message
 
 async def my_programs(update: Update, context: ContextTypes.DEFAULT_TYPE):
     pass
