@@ -174,11 +174,11 @@ His/her goal is {user["goal"]}. Remember the following gradual warmup: 'Warm-up 
 
     return instruction
 
-def generate_program(user_profile_message):
+def generate_program(program_instruction):
     client = Groq(api_key=groq_key)
 
     response = client.chat.completions.create(model="openai/gpt-oss-20b",
-    messages=[{"role": "user", "content": user_profile_message}])
+    messages=program_instruction)
     
     return response.choices[0].message.content
 
