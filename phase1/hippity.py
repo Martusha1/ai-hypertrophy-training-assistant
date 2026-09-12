@@ -194,9 +194,6 @@ async def cancel_command(update: Update, context: ContextTypes.DEFAULT_TYPE): # 
     else:
         await update.message.reply_text("You haven't begun registrating, therefore nothing to cancel, my dear friend!")
 
-        if "programs" in context.chat_data:
-            del context.chat_data["programs"]
-
 async def yes_command(update: Update, context: ContextTypes.DEFAULT_TYPE): # approves saving user profile data or new programs
 
     if "programs" in context.chat_data:
@@ -259,10 +256,12 @@ the registration process and tell Hippity more about yourself.""")
         program = program_generator.generate_program(llm_program_generation_instruction)
         program_history["programs"].append(program)
 
+        display_ready_program = await parse_and_display_program(update, context, program)
+        if display_ready_program is None:
+            return
         await update.message.reply_text("""Your new program is done. Please review it \
 and let me know if I should save it by writing '/yes' or '/no' if you would like a new one.""")
         
-        display_ready_program = parse_and_display_program(update, context, program)
         await update.message.reply_text(display_ready_program)
 
 
@@ -272,7 +271,8 @@ async def parse_and_display_program(update: Update, context: ContextTypes.DEFAUL
     except ValueError: # LLM sometimes fails to deliver raw JSON
         await update.message.reply_text("""There was an error generating your program. \
 Please try again by using '/new_program' again.""")
-        return
+        formatted_p = None
+        return formatted_p
 
     program_message = formatted_p["program_name"]
     program_message += f"\nWeeks: {formatted_p["weeks"]}\n"
