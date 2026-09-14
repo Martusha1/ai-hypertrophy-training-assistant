@@ -182,15 +182,21 @@ async def fill_user_profile(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def router_func(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if "registration" in context.chat_data: # user can fill his profile data only if /register was used in prior
         await fill_user_profile(update, context)
+    elif "programs" in context.chat_data:
+        await revise_program(update, context, context.chat_data["programs"])
     else:
         await talk_to_llm(update, context)
 
 async def cancel_command(update: Update, context: ContextTypes.DEFAULT_TYPE): # stops the registration process
     if "registration" in context.chat_data:
         del context.chat_data["registration"]
-        await update.message.reply_text("Registration canceled!")
+        await update.message.reply_text("Registration cancelled!")
+    elif "programs" in context.chat_data:
+        del context.chat_data["programs"]
+        await update.message.reply_text("New program discussion cancelled!")
     else:
-        await update.message.reply_text("You haven't begun registrating, therefore nothing to cancel, my dear friend!")
+        await update.message.reply_text("""You haven't done anything that utilizes this command. \
+You can use it to stop registration and new program generation processes.""")
 
 async def yes_command(update: Update, context: ContextTypes.DEFAULT_TYPE): # approves saving user profile data or new programs
 
@@ -227,10 +233,8 @@ only after it's all been fully recorded.""")
 async def no_command(update: Update, context: ContextTypes.DEFAULT_TYPE): # denies saving user profile data or new programs
 
     if "programs" in context.chat_data:
-        init_program_history(context.chat_data) # empties "programs" list
         await update.message.reply_text("""Please tell me exactly what you didn't like in the last \
-program so I can propose something more suitable for your needs. For a new program please use \
-'new_program' again.""")
+program so I can propose something more suitable for your needs.""")
         return
 
     if "registration" in context.chat_data:
@@ -256,13 +260,10 @@ the registration process and tell Hippity more about yourself.""")
         user_message = {"role": "user", "content": "Please generate my program now."}
         messages_to_llm.extend([llm_program_generation_instruction, user_message])
 
-
-
         program_history = context.chat_data
         init_program_history(program_history)
 
         program = program_generator.generate_program(messages_to_llm)
-        print(program)
         program_history["programs"].append(program)
 
         display_ready_program = await parse_and_display_program(update, context, program)
@@ -310,6 +311,37 @@ Please try again by using '/new_program' again.""")
             program_message += f"- {ex_name}: {cue}\n"
 
     return program_message
+
+async def revise_program(update: Update, context: ContextTypes.DEFAULT_TYPE, program_history):
+
+    telegram_id = update.effective_user.id
+    user_id = database.get_user_by_telegram_id(telegram_id)
+    user_dict = database.get_user_profile(user_id)
+
+    message: Message = update.effective_message
+        
+    user_message = {"role": "user", "content": "Please generate the corrected program now."}
+    program_correction_context = {"role": "system", "content": f"""You already generated the following program \
+for the user: {program_history[0]}. The user either didn't explicitly approve it via '/yes' as instructed and just wrote something \
+in free text or he didn't like and requested correction via '/no'. He said: {message.text}. \
+If he wants a correction of the program, then please take these into account. If not and he is just writing about something
+irrelevant to his new program, please tell him that he is mid-new-program-generation and needs to review his new program
+by either approving it via '/yes' or request correction via '/no'."""}
+    program_generation_instruction = {"role": "system", "content": program_generator.build_system_prompt(user_dict)}
+    messages = [program_generation_instruction, program_correction_context, user_message]
+
+    corrected_program = program_generator.generate_program(messages)
+    
+    display_ready_program = await parse_and_display_program(update, context, corrected_program)
+    if display_ready_program is None:
+        return
+    program_history[0] = corrected_program
+    await update.message.reply_text("""Your new program is done. Please review it \
+and let me know if I should save it by writing '/yes' or '/no' if you would like a new one.""")
+    
+    await update.message.reply_text(display_ready_program)
+    
+    
 
 async def my_programs(update: Update, context: ContextTypes.DEFAULT_TYPE):
     pass
