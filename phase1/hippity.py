@@ -55,10 +55,8 @@ def init_chat_history(chat_history): # makes the frequent check if "history" exi
         chat_history["history"].append(llm_behaviour)
 
 def init_program_history(program_history):
-    if "programs" in program_history:
-        return
-    else:
-        program_history["programs"] = []
+    program_history["programs"] = [] # ensures list is emptied before used
+    return
 
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("""Here are all commands you can use in Hippity:
@@ -197,10 +195,14 @@ async def cancel_command(update: Update, context: ContextTypes.DEFAULT_TYPE): # 
 async def yes_command(update: Update, context: ContextTypes.DEFAULT_TYPE): # approves saving user profile data or new programs
 
     if "programs" in context.chat_data:
-        await database.save_program(context.chat_data["programs"])
+        telegram_id = update.effective_user.id
+        user_id = database.get_user_by_telegram_id(telegram_id)
+        formatted_p = json.loads(context.chat_data["programs"][0])
+        database.save_program(user_id, formatted_p)
         await update.message.reply_text("""Your new program has been saved. Use '/program' \
 to preview your current program.""")
         del context.chat_data["programs"]
+        return
 
     if "registration" in context.chat_data: # mid-registration check
         registrated_data = context.chat_data["registration"]
@@ -225,6 +227,7 @@ only after it's all been fully recorded.""")
 async def no_command(update: Update, context: ContextTypes.DEFAULT_TYPE): # denies saving user profile data or new programs
 
     if "programs" in context.chat_data:
+        init_program_history(context.chat_data) # empties "programs" list
         await update.message.reply_text("""Please tell me exactly what you didn't like in the last \
 program so I can propose something more suitable for your needs. For a new program please use \
 'new_program' again.""")
@@ -237,7 +240,7 @@ program so I can propose something more suitable for your needs. For a new progr
         await update.message.reply_text("""This command is only intended for denial of a \
         newly generated program or update in user profile data.""")
 
-async def new_program(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def new_program_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     telegram_id = update.effective_user.id
     user_id = database.get_user_by_telegram_id(telegram_id)
@@ -248,12 +251,18 @@ the registration process and tell Hippity more about yourself.""")
     else:
         user_profile = database.get_user_profile(user_id)
 
-        llm_program_generation_instruction = [{"role": "system", "content": program_generator.build_system_prompt(user_profile)}]
+        messages_to_llm = []
+        llm_program_generation_instruction = {"role": "system", "content": program_generator.build_system_prompt(user_profile)}
+        user_message = {"role": "user", "content": "Please generate my program now."}
+        messages_to_llm.extend([llm_program_generation_instruction, user_message])
+
+
 
         program_history = context.chat_data
         init_program_history(program_history)
 
-        program = program_generator.generate_program(llm_program_generation_instruction)
+        program = program_generator.generate_program(messages_to_llm)
+        print(program)
         program_history["programs"].append(program)
 
         display_ready_program = await parse_and_display_program(update, context, program)
@@ -263,7 +272,6 @@ the registration process and tell Hippity more about yourself.""")
 and let me know if I should save it by writing '/yes' or '/no' if you would like a new one.""")
         
         await update.message.reply_text(display_ready_program)
-
 
 async def parse_and_display_program(update: Update, context: ContextTypes.DEFAULT_TYPE, program):
     try:
@@ -290,7 +298,7 @@ Please try again by using '/new_program' again.""")
         
         program_message += "Exercises:\n"
         for exercise in day["exercises"]:
-            program_message += f"{exercise["name"]}:"
+            program_message += f"{exercise["name"]}: "
             program_message += f"{exercise["sets"]} sets X {exercise["reps"]} reps\n"
 
         program_message += "Cooldown:\n"
@@ -316,6 +324,7 @@ def main():
     application.add_handler(CommandHandler("cancel", cancel_command))
     application.add_handler(CommandHandler("yes", yes_command))
     application.add_handler(CommandHandler("no", no_command))
+    application.add_handler(CommandHandler("new_program", new_program_command))
 
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, router_func))
 
