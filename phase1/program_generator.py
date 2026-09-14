@@ -178,7 +178,15 @@ def generate_program(program_instruction):
     client = Groq(api_key=groq_key)
 
     response = client.chat.completions.create(model="openai/gpt-oss-20b",
-    messages=program_instruction)
+    messages=program_instruction, max_completion_tokens = 3500)
+
+    choice = response.choices[0]
+
+    print("Reason:", choice.finish_reason) # checks if LLM was cut off due to low token usage
+    print("Tokens used:", response.usage.completion_tokens) # tracks token usage (ca. 2000-2500 used per program)
+
+    if choice.finish_reason == "length":
+        print("The answer was cut off because it reached the token limit.")
     
     return response.choices[0].message.content
 
