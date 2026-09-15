@@ -66,7 +66,7 @@ async def talk_to_llm(update: Update, context: ContextTypes.DEFAULT_TYPE): # pro
     init_chat_history(chat_history)
     chat_history["history"].append(user_message_text)
 
-    llm_response = program_generator.telegram_message_to_llm(chat_history["history"])
+    llm_response = program_generator.call_llm(chat_history["history"])
     llm_message_text = {"role": "assistant", "content": llm_response} # underline which messages are from the LLM
 
     chat_history["history"].append(llm_message_text)
@@ -130,7 +130,7 @@ async def fill_user_profile(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     messages = [llm_context, user_message_text]
 
-    raw_json_profile = program_generator.handle_register_message(messages)
+    raw_json_profile = program_generator.call_llm(messages)
 
     try:
         formatted_profile = json.loads(raw_json_profile)
@@ -239,7 +239,7 @@ the registration process and tell Hippity more about yourself.""")
         program_history = context.chat_data
         init_program_history(program_history)
 
-        program = program_generator.generate_program(messages_to_llm)
+        program = program_generator.call_llm(messages_to_llm)
         program_history["programs"].append(program)
 
         display_ready_program = await parse_and_display_program(update, context, program)
@@ -306,7 +306,7 @@ by either approving it via '/yes' or request correction via '/no'."""}
     program_generation_instruction = {"role": "system", "content": program_generator.build_system_prompt(user_dict)}
     messages = [program_generation_instruction, program_correction_context, user_message]
 
-    corrected_program = program_generator.generate_program(messages)
+    corrected_program = program_generator.call_llm(messages)
     
     display_ready_program = await parse_and_display_program(update, context, corrected_program)
     if display_ready_program is None:
