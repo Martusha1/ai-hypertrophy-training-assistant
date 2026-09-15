@@ -1,4 +1,4 @@
-import os, json, database
+import os
 from groq import Groq
 
 from dotenv import load_dotenv
@@ -6,144 +6,38 @@ from dotenv import load_dotenv
 load_dotenv()
 groq_key = os.getenv("GROQ_API_KEY")
 
-def get_name():
-    while True:
-        name = input("Please enter your name: ")
-        if name.isdigit():
-            print("Please use only letters. ")
-        else: break
-    return name
+def define_llm(): # defines Hippity's identity and gives input about his capabilites
+    llm_behaviour = {"role": "system", "content": """You are Hippity, a Telegram-based chatbot \
+Act as the user's personal coach in his/her fitness-journey. You specialize in hypertrophy training. \
+You can create training programs according to the user's needs, characteristics and goals. \
+Be direct, evidence-based, no fluff, no hype, but also not condescending, and \
+comfortable saying 'the research isn't clear on this' rather than faking certainty. Skip motivational filler \
+unless the user expresses discouragement. You don't have to act numb to show seriousness, so show kindness and \
+empathy when needed. Cite relevant research or established scientific consensus where applicable. \
+If evidence is limited or conflicting, say so. Don't validate bad practices to be polite. You are capable of \
+the following commands (which the user can find through /help):
+/start : gives the typical hello message when the user starts the bot for the first time (that's why it's not included \
+in /help)
+/help : lists all your possible commands
+/info : describes your purpose in a brief text for the user
+/register: starts registration process (only for new users)
+/fill_user_profile: prompts the user to enter the profile extractions process (only to be used after /register was commenced once)
+/yes: approves profile extraction results or a new program (only when user is mid-registration or mid-review of a new program)
+/no: denies extracted profile details or a new program and asks for correction (only when user is mid-registration or mid-review of a new program)
+/program : shows the current program the user follows
+/my_programs: lists all user programs
+/new_program : you generate a new program based on the user's current profile
+/log : allows the user to log his/her workout session details (sets, reps, RIR)
+/progress <exercise> : checks if progressive overload is achieved in an exercise of user's choice
+If the user wants to do anything that the commands already do, please point him/her towards using the commands ONLY since \
+the features don't work if users initialize them in freely through a text message because this is not yet supported."""}
 
-def get_age():
-    while True:
-        age = input("Please enter your age: ")
-        if age.isdigit():
-            age = int(age)
-            if age > 0 and age <= 122:
-                break
-            else:
-                print("Please enter a valid age. ")
-        else:
-            print("Please use only numbers. ")
-    return age
-
-def get_training_exp():
-    while True:
-        training_exp = input("Please select the number corresponding to your training experience: 1. Beginner, 2. Intermediate, 3. Advanced. ")
-        if training_exp.isdigit():
-            training_exp=int(training_exp)
-            if training_exp in [1,2,3]:
-                if training_exp == 1:
-                    training_exp = "Beginner"
-                elif training_exp == 2:
-                    training_exp = "Intermediate"
-                else:
-                    training_exp = "Advanced"
-                break
-            else:
-                print("Please select a number from 1 to 3 depending on your training experience. ")
-        else:
-            print("Please enter the number standing to your individual training experience. ")
-    return training_exp
-
-def get_training_days_per_week():
-    while True:
-        days = input("Please enter how many days per week you would like to train: ")
-        if days.isdigit():
-            days=int(days)
-            if days >= 1 and days <= 7:
-                break
-            else:
-                print("Please enter a valid number of days within a week. ")
-        else:
-            print("Please enter a valid number. ")
-    return days
-    
-def get_session_length():
-    while True:
-        length = input("Please enter how many minutes per session you would like to train: ")
-        if length.isdigit():
-            length=int(length)
-            if length >= 15 and length <= 360:
-                break
-            else:
-                print("Please enter a valid session length. ")
-        else:
-            print("Please enter a number representing the amount of time you would like to train per session in minutes. ")
-    return length
-
-def get_available_equipment():
-    while True:
-        equipment=input("Please select what equipment you have available by choosing its corresponding number: 1. Full gym, 2. Dumbbells, 3. Barbell, 4. Bench, 5. Rack, 6. Resistance bands, 7. Nothing. ")
-        if equipment.isdigit():
-            equipment=int(equipment)
-            if equipment in [1,2,3,4,5,6,7]:
-                match equipment:
-                    case 1:
-                        equipment = "Full gym"
-                        break
-                    case 2:
-                        equipment = "Dumbbells"
-                        break
-                    case 3:
-                        equipment = "Barbell"
-                        break
-                    case 4:
-                        equipment = "Bench"
-                        break
-                    case 5:
-                        equipment = "Rack"
-                        break
-                    case 6:
-                        equipment = "Resistance bands"
-                        break
-                    case 7:
-                        equipment = "Nothing"
-                        break
-                    case _:
-                        print("Error. Please try again. ")
-            else:
-                print("Please select a number from 1 to 7. ")
-        else:
-            print("Please select a number that correlates to your equipment. ")
-    return equipment
-
-def get_goal():
-    while True:
-        goal = input("Please select the number corresponding to your goal: 1. Maximum hypertrophy, 2. General fitness (based on muscle building). ")
-        if goal.isdigit():
-            goal=int(goal)
-            if goal in [1,2]:
-                if goal == 1:
-                    goal = "Maximum hypertrophy"
-                    break
-                else:
-                    goal = "General fitness (based on muscle building)"
-                    break
-            else:
-                print("Please enter either 1 or 2 depending on your goal. ")
-        else:
-            print("Please use only a number. ")
-    return goal
-
-def get_user_profile():
-
-    user = {"name": None, "age": None, "training experience": None,
-            "training days per week": None, "session length": None,
-            "available equipment": None, "goal": None}
-    
-    user["name"]=get_name()
-    user["age"]=get_age()
-    user["training experience"]=get_training_exp()
-    user["training days per week"]=get_training_days_per_week()
-    user["session length"]=get_session_length()
-    user["available equipment"]=get_available_equipment()
-    user["goal"]=get_goal()
-    
-    return user
+    return llm_behaviour
 
 def build_system_prompt(user):
-    instruction = f"""Please generate a new program for the user. The user's name is {user["name"]}, {user["age"]} years old. \
+    llm_identity_dict = define_llm()
+    llm_identity_str = llm_identity_dict["content"]
+    instruction = llm_identity_str + f"""Please generate a new program for the user. The user's name is {user["name"]}, {user["age"]} years old. \
 His/her training experience is at a {user["training experience"]} level. He/she like to train {user["training days per week"]} days per week \
 with each session preferably being around {user["session length"]} minutes long. Equipment-wise he/she has {user["available equipment"]} at his/her disposal. \
 His/her goal is {user["goal"]}. Remember the following gradual warmup: 'Warm-up for compound movements: empty bar X 10 reps -> \
@@ -174,7 +68,7 @@ His/her goal is {user["goal"]}. Remember the following gradual warmup: 'Warm-up 
 
     return instruction
 
-def generate_program(program_instruction):
+def call_llm(program_instruction):
     client = Groq(api_key=groq_key)
 
     response = client.chat.completions.create(model="openai/gpt-oss-20b",
@@ -190,68 +84,6 @@ def generate_program(program_instruction):
     
     return response.choices[0].message.content
 
-def parse_and_display_program(p):
-    try:
-        formatted_p = json.loads(p)
-    except ValueError: # LLM sometimes fails to deliver raw JSON
-        print("JSON is probably faulty.")
-        return None
-    
-    print(formatted_p["program_name"])
-    print(f"Weeks: {formatted_p["weeks"]}")
-
-    for day in formatted_p["days"]: # loops only needed for lists
-        
-        print(f"Day: {day["day"]}")
-        
-        for muscle in day["muscles_targeted"]:
-            print(f"{muscle} ", end="") # prevents newline when several muscles get printed
-        
-        print("\nWarmup:")
-        for drill in day["warmup"]:
-            print(f"- {drill}")
-        
-        print("Exercises:")
-        for exercise in day["exercises"]:
-            print(f"{exercise["name"]}:")
-            print(f"{exercise["sets"]} sets X {exercise["reps"]} reps")
-
-        print("Cooldown:")
-        for info in day["cooldown"]:
-            print(f"- {info}")
-        
-        print("Technique notes:")
-        for ex_name, cue  in day["technique_notes"].items():
-            print(f"- {ex_name}: {cue}")
-
-    return formatted_p
-
-def telegram_message_to_llm(telegram_message):
-    client = Groq(api_key=groq_key)
-
-    response = client.chat.completions.create(model="openai/gpt-oss-20b", messages=telegram_message)
-
-    return response.choices[0].message.content
-
-def handle_register_message(register_message):
-    client = Groq(api_key=groq_key)
-    
-    response = client.chat.completions.create(model="openai/gpt-oss-20b",
-    messages=register_message)
-        
-    return response.choices[0].message.content
-
-
-def main():
-    user = get_user_profile()
-    prompt = build_system_prompt(user)
-    program = generate_program(prompt)
-    formatted_program = parse_and_display_program(program)
-    user_id = database.save_user(user)
-    program_id = database.save_program(user_id, formatted_program)
-
-if __name__ == "__main__":
-        main()
 
     
 
