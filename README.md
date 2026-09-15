@@ -2,7 +2,7 @@
 
 Hippity is an AI-powered training assistant that generates personalized hypertrophy (muscle growth) programs and helps track workout progress over time. It combines an LLM (via Groq) with a structured database of programs, sessions, and exercises, delivered through a Telegram bot and a FastAPI backend.
 
-**Status: actively in development.** Multi-user registration is fully working end-to-end — a new user describes themselves in plain language, Hippity extracts a structured profile via the LLM, asks follow-up questions for anything missing, shows the extracted data for review, and saves it to the database on `/yes`. General conversation with per-chat memory also works. Actually generating and saving a user's first training program (`/new_program`) is the next piece being built.
+**Status: actively in development.** Multi-user registration is fully working end-to-end — a new user describes themselves in plain language, Hippity extracts a structured profile via the LLM, asks follow-up questions for anything missing, shows the extracted data for review, and saves it to the database on `/yes`. General conversation with per-chat memory also works. New programs get generated through (`/new_program`): the LLM builds the program and shows it to the user, who can either approve it with `/yes` again or ask for correction by just describing it via text message. Preview of all generated user programs, as well as other functionalities, are currently being worked on.
 
 ## What it does (or is being built to do)
 
@@ -82,7 +82,6 @@ phase1/   The actual application
 
 ## Roadmap
 
-- [ ] Build `/new_program`: generate a program from a saved profile via `build_system_prompt()`/`generate_program()` and save it with `database.save_program()`generation + preview of all user programs
 - [ ] Add `/changeprofile` — same free-text extraction approach as registration, but seeded with the user's existing profile and requiring a preview/confirm step before overwriting
 - [ ] Persist conversation history to the database so it survives a bot restart
 - [ ] Wire up `/progress <exercise>`, `/program`, `/my_programs` to their corresponding database functions
