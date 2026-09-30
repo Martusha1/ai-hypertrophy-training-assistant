@@ -295,18 +295,38 @@ async def revise_program(update: Update, context: ContextTypes.DEFAULT_TYPE, pro
     user_dict = database.get_user_profile(user_id)
 
     message: Message = update.effective_message
-        
-    user_message = {"role": "user", "content": "Please generate the corrected program now."}
-    program_correction_context = {"role": "system", "content": f"""You already generated the following program \
-for the user: {program_history[0]}. The user either didn't explicitly approve it via '/yes' as instructed and just wrote something \
-in free text or he didn't like and requested correction via '/no'. He said: {message.text}. \
-If he wants a correction of the program, then please take these into account. If not and he is just writing about something
-irrelevant to his new program, please tell him that he is mid-new-program-generation and needs to review his new program
-by either approving it via '/yes' or request correction via '/no'."""}
-    program_generation_instruction = {"role": "system", "content": program_generator.build_system_prompt(user_dict)}
-    messages = [program_generation_instruction, program_correction_context, user_message]
 
-    corrected_program = program_generator.call_llm(messages)
+    true_or_false_context = {"role": "system", "content": f"""You already generated the following program \
+for the user: {program_history[0]}. The user either didn't explicitly approve it via '/yes' as instructed and just wrote something \
+in free text or he didn't like and requested correction via '/no'. He said: {message.text}. Does the user refer to program correction or not? \
+If correction is wanted, include 'true' in your response, if correction is explicitly denied, therefore program is ok, then include 'false'. \
+If his/her answer seems completely out of topic, then write 'irrelevant'."""}
+    
+    true_or_false_demand = {"role": "user", "content": "Does the user refer to program generation or not?"}
+
+    messages = [true_or_false_context, true_or_false_demand]
+
+    llm_decision = program_generator.call_llm(messages)
+
+    if 'true' in llm_decision.lower(): # correction is needed
+        program_correction_context = {"role": "system", "content": f"""You already generated the following program \
+for the user: {program_history[0]}. The user explicitly said it needs correction via free text message. He said: {message.text}. \
+Please correct the program according to his/her needs and print the new program by following the exact instructions of new
+program generation."""}
+        
+        user_message = {"role": "user", "content": "Please correct the program."}
+
+        program_generation_instruction = {"role": "system", "content": program_generator.build_system_prompt(user_dict)}
+
+        program_correction_messages = [program_generation_instruction, program_correction_context, user_message]
+        corrected_program = program_generator.call_llm(program_correction_messages)
+    elif 'false' in llm_decision.lower(): # correction is denied, therefore save last program
+        await yes_command(update, context)
+        return
+    else: # user message was out of topic
+        await update.message.reply_text("Before we carry on, your new program is done. Please review it \
+and let me know if I should save it by writing '/yes' or '/no' if you would like a new one.")
+        return
     
     display_ready_program = await parse_and_display_program(update, context, corrected_program)
     if display_ready_program is None:
