@@ -352,6 +352,48 @@ to generate a new program.""")
             all_programs_message += f"Program {p[0]}: {p[1]}\n"
         await update.message.reply_text(all_programs_message)
 
+async def show_program_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+
+    if not context.args: # contains all arguments from the command handler in a list
+        await update.message.reply_text("""Please refer to the specific program you want me to \
+show you by including its id number next to the command. Example: '/show_program 1'. \
+If you don't know the id number, please use '/my_programs' to view all your saved programs and \
+all corresponding id numbers.""")
+        return
+
+    telegram_id = update.effective_user.id
+    user_id = database.get_user_by_telegram_id(telegram_id)
+    
+    user_programs = database.get_program_ids_by_user(user_id)
+
+    try:
+        program_id = int(context.args[0])
+
+        if user_programs is None:
+            await update.message.reply_text("No saved programs yet.")
+            context.args = []
+            return
+        elif program_id not in user_programs:
+            await update.message.reply_text("""Wrong program ID. If you don't know your id number, \
+please use '/my_programs' to view all your saved programs and all corresponding id numbers.""")
+            context.args = []
+            return
+        
+        raw_json_program = database.get_program_day(program_id)
+        if raw_json_program is None:
+            await update.message.reply_text("This program ID doesn't exist.")
+            context.args = []
+            return
+        
+        formatted_p = await parse_and_display_program(update, context, raw_json_program)
+        await update.message.reply_text(formatted_p)
+    except ValueError:
+        await update.message.reply_text("""Please enter a valid id number as an argument. \
+Example: '/show_program 1'. If you don't know the id number, please use '/my_programs' to view all your saved programs and \
+all corresponding id numbers.""")
+        context.args = []
+        return
+
 def main():
     application = Application.builder().token(bot_token).build()
 
@@ -364,6 +406,7 @@ def main():
     application.add_handler(CommandHandler("no", no_command))
     application.add_handler(CommandHandler("new_program", new_program_command))
     application.add_handler(CommandHandler("my_programs", my_programs_command))
+    application.add_handler(CommandHandler("show_program", show_program_command))
 
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, router_func))
 
