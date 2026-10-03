@@ -244,6 +244,7 @@ the registration process and tell Hippity more about yourself.""")
 
         display_ready_program = await parse_and_display_program(update, context, program)
         if display_ready_program is None:
+            del program_history["programs"]
             return
         await update.message.reply_text("""Your new program is done. Please review it \
 and let me know if I should save it by writing '/yes' or '/no' if you would like a new one.""")
