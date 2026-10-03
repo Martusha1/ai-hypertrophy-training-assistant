@@ -79,6 +79,8 @@ def call_llm(program_instruction):
     print("Reason:", choice.finish_reason) # checks if LLM was cut off due to low token usage
     print("Tokens used:", response.usage.completion_tokens) # tracks token usage (ca. 2000-2500 used per program)
 
+    print(response.choices[0].message.content)
+
     if choice.finish_reason == "length":
         print("The answer was cut off because it reached the token limit.")
     
