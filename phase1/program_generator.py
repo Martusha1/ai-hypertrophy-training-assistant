@@ -24,8 +24,9 @@ in /help)
 /fill_user_profile: prompts the user to enter the profile extractions process (only to be used after /register was commenced once)
 /yes: approves profile extraction results or a new program (only when user is mid-registration or mid-review of a new program)
 /no: denies extracted profile details or a new program and asks for correction (only when user is mid-registration or mid-review of a new program)
-/program : shows the current program the user follows
-/my_programs: lists all user programs
+/show_program : shows contents of a program of choice (user should type the command with an argument representing the program id of the program \
+he/she wants you to show; to view the exact program id, the user should first use '/my_programs' to see all his programs and their corresponding id's)
+/my_programs: lists all user programs and their exclusive id;s
 /new_program : you generate a new program based on the user's current profile
 /log : allows the user to log his/her workout session details (sets, reps, RIR)
 /progress <exercise> : checks if progressive overload is achieved in an exercise of user's choice
