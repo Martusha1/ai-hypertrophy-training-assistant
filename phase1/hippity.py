@@ -42,8 +42,8 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 /fill_user_profile: tell Hippity more about yourself (use after /register)
 /yes: approves profile extraction results or a new program
 /no: denies extracted profile details or a new program and asks for correction
-/program : shows the current program you follow
 /my_programs: lists all your programs
+/show_program : shows contents of a program of choice
 /new_program : Hippity generates a new program based on your needs
 /log : allows you to log your workout session details (sets, reps, RIR)
 /progress <exercise> : checks if progressive overload is achieved in an exercise of your choice
@@ -337,11 +337,20 @@ and let me know if I should save it by writing '/yes' or '/no' if you would like
 and let me know if I should save it by writing '/yes' or '/no' if you would like a new one.""")
     
     await update.message.reply_text(display_ready_program)
-    
-    
 
-async def my_programs(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    pass
+async def my_programs_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    telegram_id = update.effective_user.id
+    user_id = database.get_user_by_telegram_id(telegram_id)
+    all_programs = database.get_programs(user_id)
+
+    if not all_programs:
+        await update.message.reply_text("""You don't have any saved programs yet. Please use '/new_program' \
+to generate a new program.""")
+    else:
+        all_programs_message = "Here are all your saved programs until now:\n"
+        for p in all_programs:
+            all_programs_message += f"Program {p[0]}: {p[1]}\n"
+        await update.message.reply_text(all_programs_message)
 
 def main():
     application = Application.builder().token(bot_token).build()
@@ -354,6 +363,7 @@ def main():
     application.add_handler(CommandHandler("yes", yes_command))
     application.add_handler(CommandHandler("no", no_command))
     application.add_handler(CommandHandler("new_program", new_program_command))
+    application.add_handler(CommandHandler("my_programs", my_programs_command))
 
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, router_func))
 
