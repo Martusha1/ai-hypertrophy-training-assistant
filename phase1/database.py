@@ -122,11 +122,38 @@ def get_program_day(program_id):
     """, (program_id,)) # , is needed because
     # execute expects 2nd arg to be a tuple or list
     
-    rj = cursor.fetchone()[0] # because the result need to be
+    raw_json_tuple = cursor.fetchone()
+    if raw_json_tuple is None: # handles invalid program id submissions
+        conn.close()
+        return raw_json_tuple
+    
+    raw_json = raw_json_tuple[0] # because the result need to be
     # a tuple or list, we can also address which part of it we want
     conn.close()
 
-    return json.loads(rj) # return raw json of program details for certain day
+    return raw_json # return raw json of program details for certain day
+
+def get_program_ids_by_user(user_id):
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+
+    cursor.execute("""
+    SELECT program_id FROM program
+    WHERE user_id = ?
+""", (user_id,))
+
+    program_id_tuple = cursor.fetchall()
+    if not program_id_tuple:
+        conn.close()
+        return None
+
+    program_id_list = []
+    for p in program_id_tuple:
+        program_id_list.append(p[0])
+
+    conn.close()
+    return program_id_list
+
 
 def log_session(program_id, user_id, day_number):
     conn = sqlite3.connect(DB_PATH)
