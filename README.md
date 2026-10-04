@@ -88,6 +88,7 @@ phase1/   The actual application
 
 ## Roadmap
 
+- [ ] Add `/log` to handle workout data extraction
 - [ ] Wire up `/progress <exercise>` to its corresponding database function
 - [ ] Add `/changeprofile` — same free-text extraction approach as registration, but seeded with the user's existing profile and requiring a preview/confirm step before overwriting
 - [ ] Persist conversation history to the database so it survives a bot restart
