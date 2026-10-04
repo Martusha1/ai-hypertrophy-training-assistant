@@ -98,7 +98,7 @@ def save_program(user_id, formatted_program):
 
     return cursor.lastrowid # returns program_id
 
-def get_programs(user_id): 
+def get_all_programs_by_user(user_id): 
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
 
@@ -112,7 +112,7 @@ def get_programs(user_id):
 
     return all_programs # returns a list of all programs
     
-def get_program_day(program_id):
+def get_program_details(program_id):
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
 
@@ -131,7 +131,7 @@ def get_program_day(program_id):
     # a tuple or list, we can also address which part of it we want
     conn.close()
 
-    return raw_json # return raw json of program details for certain day
+    return raw_json # return raw json of program details
 
 def get_program_ids_by_user(user_id):
     conn = sqlite3.connect(DB_PATH)
