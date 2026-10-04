@@ -160,6 +160,8 @@ async def router_func(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await fill_user_profile(update, context)
     elif "programs" in context.chat_data:
         await revise_program(update, context, context.chat_data["programs"])
+    elif "log" in context.chat_data:
+        await handle_log(update, context)
     else:
         await talk_to_llm(update, context)
 
@@ -341,7 +343,7 @@ and let me know if I should save it by writing '/yes' or '/no' if you would like
 async def my_programs_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     telegram_id = update.effective_user.id
     user_id = database.get_user_by_telegram_id(telegram_id)
-    all_programs = database.get_programs(user_id)
+    all_programs = database.get_all_programs_by_user(user_id)
 
     if not all_programs:
         await update.message.reply_text("""You don't have any saved programs yet. Please use '/new_program' \
@@ -356,9 +358,9 @@ async def show_program_command(update: Update, context: ContextTypes.DEFAULT_TYP
 
     if not context.args: # contains all arguments from the command handler in a list
         await update.message.reply_text("""Please refer to the specific program you want me to \
-show you by including its id number next to the command. Example: '/show_program 1'. \
-If you don't know the id number, please use '/my_programs' to view all your saved programs and \
-all corresponding id numbers.""")
+show you by including its ID number next to the command. Example: /show_program 1. \
+If you don't know the ID number, please use /my_programs to view all your saved programs and \
+their corresponding ID.""")
         return
 
     telegram_id = update.effective_user.id
@@ -367,19 +369,19 @@ all corresponding id numbers.""")
     user_programs = database.get_program_ids_by_user(user_id)
 
     try:
-        program_id = int(context.args[0])
+        program_id = int(context.args[-1])
 
         if user_programs is None:
             await update.message.reply_text("No saved programs yet.")
             context.args = []
             return
         elif program_id not in user_programs:
-            await update.message.reply_text("""Wrong program ID. If you don't know your id number, \
-please use '/my_programs' to view all your saved programs and all corresponding id numbers.""")
+            await update.message.reply_text("""Wrong program ID. If you don't know your ID number, \
+please use /my_programs to view all your saved programs and their corresponding ID.""")
             context.args = []
             return
         
-        raw_json_program = database.get_program_day(program_id)
+        raw_json_program = database.get_program_details(program_id)
         if raw_json_program is None:
             await update.message.reply_text("This program ID doesn't exist.")
             context.args = []
@@ -389,10 +391,89 @@ please use '/my_programs' to view all your saved programs and all corresponding 
         await update.message.reply_text(formatted_p)
     except ValueError:
         await update.message.reply_text("""Please enter a valid id number as an argument. \
-Example: '/show_program 1'. If you don't know the id number, please use '/my_programs' to view all your saved programs and \
-all corresponding id numbers.""")
+Example: /show_program 1. If you don't know the id number, please use /my_programs to view all your saved programs and \
+their corresponding ID.""")
         context.args = []
         return
+
+async def log_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+
+    message: Message = update.effective_message
+        
+    telegram_id = update.effective_user.id
+    user_id = database.get_user_by_telegram_id(telegram_id)
+
+    if not context.chat_data["log"]:
+        log_data = context.chat_data["log"]
+        return
+    else:
+        # change to broader demand of all info needed (sets,reps etc.)
+        await update.message.reply_text("Tell me all about your workout.")
+
+async def handle_log(update: Update, context: ContextTypes.DEFAULT_TYPE):
+
+    message: Message = update.effective_message
+    
+    telegram_id = update.effective_user.id
+    user_id = database.get_user_by_telegram_id(telegram_id)
+
+    log_data = context.chat_data["log"]
+
+    all_program_ids = database.get_program_ids_by_user(user_id)
+    all_programs_shown = []
+    for program_id in all_program_ids:
+        context.args.append(program_id)
+        sent_program = await show_program_command(update, context)
+        all_programs_shown.append(sent_program)
+
+
+    await update.message.reply_text("""Please point out which of the following programs you followed \
+and specify the exact day.""")
+
+    llm_response_behaviour = """The user wants to log his/her workout session. \
+You should extract the program and the day the user followed for his soon to be logged workout session. \
+The way you will do it is by identifying the ID number corresponding to the program the user will say he followed. \
+Your task is to decipher which program he is talking about in his text message based on the list \
+of all programs I will provide you with, get its ID, and also extract the exact day of the program he/she trained. \
+Your answer should produce a JSON string that follows the following structure:
+    {
+        "program_id": integer,
+        "day_number": integer,
+        "missing_fields": keep a list of all keys here that you believe the user hasn't given a clear answer to,
+        "follow_up_message": Your follow up message in case some input is missing
+    }
+All fields that you believe can't be filled based on the user's input, should have their value set to None. \
+Return only the JSON. Ensure the JSON is valid and complete. Double-check all brackets and braces are closed. \
+No explanation, no commentary before or after."""
+    
+    user_program_choice_text = {"role": "user", "content": f"Programs shown to user: {all_programs_shown}. Newest reply: {message.text}"}
+
+    llm_context = {"role": "system", "content": llm_response_behaviour}
+    
+    messages = [llm_context, user_program_choice_text]
+    
+    raw_json_program_info = program_generator.call_llm(messages)
+    
+    try:
+        formatted_program_info = json.loads(raw_json_program_info)
+    except ValueError:
+        print("JSON is probably faulty.")
+        return None
+    
+    for key, value in formatted_program_info.items():
+        if key in ["missing_fields", "follow_up_message"]:
+            continue
+        if value != None:
+            log_data[f"{key}"] = value
+
+    if formatted_program_info["missing_fields"]:
+        await update.message.reply_text(f"{formatted_program_info["follow_up_message"]}")
+    else:
+        await update.message.reply_text("""Just to confirm, you followed this program and day?""")
+        for key, value in formatted_program_info.items():
+            if key in ["missing_fields", "follow_up_message"]:
+                continue
+            await update.message.reply_text(f"{key}: {value}")
 
 def main():
     application = Application.builder().token(bot_token).build()
@@ -407,6 +488,7 @@ def main():
     application.add_handler(CommandHandler("new_program", new_program_command))
     application.add_handler(CommandHandler("my_programs", my_programs_command))
     application.add_handler(CommandHandler("show_program", show_program_command))
+    application.add_handler(CommandHandler("log", log_command))
 
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, router_func))
 
