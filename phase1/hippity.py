@@ -403,77 +403,141 @@ async def log_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     telegram_id = update.effective_user.id
     user_id = database.get_user_by_telegram_id(telegram_id)
 
-    if not context.chat_data["log"]:
-        log_data = context.chat_data["log"]
-        return
-    else:
-        # change to broader demand of all info needed (sets,reps etc.)
-        await update.message.reply_text("Tell me all about your workout.")
+    if "log" not in context.chat_data:
+        context.chat_data["log"] = {}
+    else: # temporary solution for testing in case flags get wrong values and i need fast reset
+        del context.chat_data["log"]
+        context.chat_data["log"] = {}
+        
+
+    await my_programs_command(update, context)
+    await update.message.reply_text("Please choose the one you followed for your workout by its ID.")
 
 async def handle_log(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
-    message: Message = update.effective_message
-    
     telegram_id = update.effective_user.id
     user_id = database.get_user_by_telegram_id(telegram_id)
+        
+    user_programs = database.get_program_ids_by_user(user_id)
 
-    log_data = context.chat_data["log"]
+    logged_data = context.chat_data["log"]
 
-    all_program_ids = database.get_program_ids_by_user(user_id)
-    all_programs_shown = []
-    for program_id in all_program_ids:
-        context.args.append(program_id)
-        sent_program = await show_program_command(update, context)
-        all_programs_shown.append(sent_program)
+    message: Message = update.effective_message
+
+    if "program_id" not in logged_data:
+        program_id = check_for_int_in_user_message(message)
+
+        if program_id == "":
+            await update.message.reply_text("Please enter the exact ID number of the program you followed.")
+            return
+
+        all_program_ids = database.get_program_ids_by_user(user_id)
+
+        if program_id not in all_program_ids:
+            await update.message.reply_text("This program ID doesn't exist.")
+            return
+
+        logged_data["program_id"] = program_id
+
+    if "day_number" not in logged_data:
+        if "program_shown" not in logged_data:
+            await update.message.reply_text("Alright, let me pull up the program again real quick.")
+            context.args = []
+            context.args.append(program_id)
+            await show_program_command(update, context)
+            logged_data["program_shown"] = True
+        
+        await update.message.reply_text("""Please specify which day you were doing.""")
+
+        day_number = check_for_int_in_user_message(message)
+
+        if day_number == "":
+            await update.message.reply_text("Please type the value of the exact day of the program you followed.")
+            return
+
+        all_day_numbers = await get_day_numbers_list(update, context, logged_data["program_id"])
+
+        if day_number not in all_day_numbers:
+            await update.message.reply_text("No such day number in your program.")
+            return
+
+        logged_data["day_number"] = day_number
+
+    workout_id = database.log_session(logged_data["program_id", user_id, logged_data["day_number"]])
+
+    if "performance" not in logged_data:
+        exercises = await get_exercises(update, context, logged_data["program_id"], logged_data["day_number"])
+        for ex in exercises:
+
+            if f"{ex['name']}_flag" not in logged_data:
+                await update.message.reply_text(f"{ex["name"]}")
+                logged_data[f"{ex["name"]}_flag"] = True
+            
+            for set_number in range(1,ex["sets"]+1):
+                if f"set_{set_number}_flag" not in logged_data:
+                    if f"weight_for_set_{set_number}_flag" not in logged_data:
+                        await update.message.reply_text(f"Enter weight lifted (in kg) for set {set_number}.")
+                        if isinstance(check_for_int_in_user_message(message.text), int):
+                            weight = check_for_int_in_user_message(message.text)
+                            logged_data[f"weight_for_set_{set_number}_flag"] = True
+                            await update.message.reply_text(f"Enter reps for set {set_number}")
+                            return
+                        else:
+                            await update.message.reply_text("Please enter a value for the weight.")
+                            return
+                    elif f"reps_on_set_{set_number}_flag" not in logged_data:
+                        if isinstance(check_for_int_in_user_message(message.text), int):
+                            reps = check_for_int_in_user_message(message.text)
+                            logged_data[f"reps_on_set_{set_number}_flag"] = True
+                            await update.message.reply_text(f"Enter RIR for set {set_number}")
+                            return
+                        else:
+                            await update.message.reply_text("Please enter a value for the reps.")
+                            return
+                    elif f"rir_on_set_{set_number}" not in logged_data:
+                            if isinstance(check_for_int_in_user_message(message.text), int):
+                                rir = check_for_int_in_user_message(message.text)
+                                logged_data[f"reps_on_set_{set_number}_flag"] = True
+                                logged_data[f"set_{set_number}_flag"] = True
+                                database.save_set(workout_id, ex["name"], set_number, reps, weight, rir)
+                else:
+                    continue
+
+        logged_data["performance"] = True
+        update.message.reply_text("Workout info saved.")
+        del context.chat_data["log"]
 
 
-    await update.message.reply_text("""Please point out which of the following programs you followed \
-and specify the exact day.""")
+async def get_exercises(update: Update, context: ContextTypes.DEFAULT_TYPE, program_id, day_number):
+    raw_json_program = database.get_program_details(program_id)
 
-    llm_response_behaviour = """The user wants to log his/her workout session. \
-You should extract the program and the day the user followed for his soon to be logged workout session. \
-The way you will do it is by identifying the ID number corresponding to the program the user will say he followed. \
-Your task is to decipher which program he is talking about in his text message based on the list \
-of all programs I will provide you with, get its ID, and also extract the exact day of the program he/she trained. \
-Your answer should produce a JSON string that follows the following structure:
-    {
-        "program_id": integer,
-        "day_number": integer,
-        "missing_fields": keep a list of all keys here that you believe the user hasn't given a clear answer to,
-        "follow_up_message": Your follow up message in case some input is missing
-    }
-All fields that you believe can't be filled based on the user's input, should have their value set to None. \
-Return only the JSON. Ensure the JSON is valid and complete. Double-check all brackets and braces are closed. \
-No explanation, no commentary before or after."""
+    formatted_p = json.loads(raw_json_program)
+
+    for day in formatted_p["days"]:
+        if day["day"] == day_number:
+            return day["exercises"]
+
+def check_for_int_in_user_message(message: Message):
+    int_found = ""
+
+    for char in message.text:
+        if char.isdigit():
+            int_found += char
+
+    return int(int_found)
+
+async def get_day_numbers_list(update: Update, context: ContextTypes.DEFAULT_TYPE, program_id):
+    raw_json_program = database.get_program_details(program_id)
     
-    user_program_choice_text = {"role": "user", "content": f"Programs shown to user: {all_programs_shown}. Newest reply: {message.text}"}
+    formatted_p = json.loads(raw_json_program)
 
-    llm_context = {"role": "system", "content": llm_response_behaviour}
-    
-    messages = [llm_context, user_program_choice_text]
-    
-    raw_json_program_info = program_generator.call_llm(messages)
-    
-    try:
-        formatted_program_info = json.loads(raw_json_program_info)
-    except ValueError:
-        print("JSON is probably faulty.")
-        return None
-    
-    for key, value in formatted_program_info.items():
-        if key in ["missing_fields", "follow_up_message"]:
-            continue
-        if value != None:
-            log_data[f"{key}"] = value
+    all_day_numbers = []
 
-    if formatted_program_info["missing_fields"]:
-        await update.message.reply_text(f"{formatted_program_info["follow_up_message"]}")
-    else:
-        await update.message.reply_text("""Just to confirm, you followed this program and day?""")
-        for key, value in formatted_program_info.items():
-            if key in ["missing_fields", "follow_up_message"]:
-                continue
-            await update.message.reply_text(f"{key}: {value}")
+    for day in formatted_p["days"]:
+        all_day_numbers.append(day["day"])
+        
+    return all_day_numbers
+
 
 def main():
     application = Application.builder().token(bot_token).build()
