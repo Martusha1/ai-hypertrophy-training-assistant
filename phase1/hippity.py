@@ -425,7 +425,7 @@ async def handle_log(update: Update, context: ContextTypes.DEFAULT_TYPE):
     message: Message = update.effective_message
 
     if "program_id" not in logged_data:
-        program_id = check_for_int_in_user_message(message)
+        program_id = check_for_int_in_user_message(message.text)
 
         if program_id == "":
             await update.message.reply_text("Please enter the exact ID number of the program you followed.")
@@ -446,10 +446,13 @@ async def handle_log(update: Update, context: ContextTypes.DEFAULT_TYPE):
             context.args.append(program_id)
             await show_program_command(update, context)
             logged_data["program_shown"] = True
-        
-        await update.message.reply_text("""Please specify which day you were doing.""")
 
-        day_number = check_for_int_in_user_message(message)
+        if "day_specification_message" not in logged_data:
+            await update.message.reply_text("""Please specify which day you were doing.""")
+            logged_data["day_specification_message"] = True
+            return
+
+        day_number = check_for_int_in_user_message(message.text)
 
         if day_number == "":
             await update.message.reply_text("Please type the value of the exact day of the program you followed.")
@@ -462,51 +465,55 @@ async def handle_log(update: Update, context: ContextTypes.DEFAULT_TYPE):
             return
 
         logged_data["day_number"] = day_number
+        await update.message.reply_text("Alright, I will go over all the exercises and ask you about everything.")
 
-    workout_id = database.log_session(logged_data["program_id", user_id, logged_data["day_number"]])
+    workout_id = database.log_session(logged_data["program_id"], user_id, logged_data["day_number"])
 
     if "performance" not in logged_data:
+        global weight, reps, rir, set_number
         exercises = await get_exercises(update, context, logged_data["program_id"], logged_data["day_number"])
         for ex in exercises:
 
             if f"{ex['name']}_flag" not in logged_data:
                 await update.message.reply_text(f"{ex["name"]}")
                 logged_data[f"{ex["name"]}_flag"] = True
-            
+
             for set_number in range(1,ex["sets"]+1):
-                if f"set_{set_number}_flag" not in logged_data:
-                    if f"weight_for_set_{set_number}_flag" not in logged_data:
-                        await update.message.reply_text(f"Enter weight lifted (in kg) for set {set_number}.")
-                        if isinstance(check_for_int_in_user_message(message.text), int):
-                            weight = check_for_int_in_user_message(message.text)
-                            logged_data[f"weight_for_set_{set_number}_flag"] = True
+                if f"set_{set_number}_on_{ex['name']}_flag" not in logged_data:
+                    if f"weight_for_set_{set_number}_on_{ex['name']}_flag" not in logged_data:
+                        if f"access_weight_on_set_{set_number}_on_{ex['name']}_flag" not in logged_data:
+                            await update.message.reply_text(f"Enter weight lifted (in kg) for set {set_number}.")
+                            logged_data[f"access_weight_on_set_{set_number}_on_{ex['name']}_flag"] = True
+                            return
+                        elif isinstance(check_for_float_in_user_message(message.text), float):
+                            weight = check_for_float_in_user_message(message.text)
+                            logged_data[f"weight_for_set_{set_number}_on_{ex['name']}_flag"] = True
                             await update.message.reply_text(f"Enter reps for set {set_number}")
                             return
                         else:
                             await update.message.reply_text("Please enter a value for the weight.")
                             return
-                    elif f"reps_on_set_{set_number}_flag" not in logged_data:
+                    elif f"reps_on_set_{set_number}_on_{ex['name']}_flag" not in logged_data:
                         if isinstance(check_for_int_in_user_message(message.text), int):
                             reps = check_for_int_in_user_message(message.text)
-                            logged_data[f"reps_on_set_{set_number}_flag"] = True
+                            logged_data[f"reps_on_set_{set_number}_on_{ex['name']}_flag"] = True
                             await update.message.reply_text(f"Enter RIR for set {set_number}")
                             return
                         else:
                             await update.message.reply_text("Please enter a value for the reps.")
                             return
-                    elif f"rir_on_set_{set_number}" not in logged_data:
+                    elif f"rir_on_set_{set_number}_on_{ex['name']}_flag" not in logged_data:
                             if isinstance(check_for_int_in_user_message(message.text), int):
                                 rir = check_for_int_in_user_message(message.text)
-                                logged_data[f"reps_on_set_{set_number}_flag"] = True
-                                logged_data[f"set_{set_number}_flag"] = True
+                                logged_data[f"rir_on_set_{set_number}_on_{ex['name']}_flag"] = True
+                                logged_data[f"set_{set_number}_on_{ex['name']}_flag"] = True
                                 database.save_set(workout_id, ex["name"], set_number, reps, weight, rir)
                 else:
                     continue
 
         logged_data["performance"] = True
-        update.message.reply_text("Workout info saved.")
+        await update.message.reply_text("Workout info saved.")
         del context.chat_data["log"]
-
 
 async def get_exercises(update: Update, context: ContextTypes.DEFAULT_TYPE, program_id, day_number):
     raw_json_program = database.get_program_details(program_id)
@@ -517,14 +524,23 @@ async def get_exercises(update: Update, context: ContextTypes.DEFAULT_TYPE, prog
         if day["day"] == day_number:
             return day["exercises"]
 
-def check_for_int_in_user_message(message: Message):
+def check_for_int_in_user_message(message):
     int_found = ""
 
-    for char in message.text:
+    for char in message:
         if char.isdigit():
             int_found += char
 
     return int(int_found)
+
+def check_for_float_in_user_message(message):
+    float_found = ""
+
+    for char in message:
+        if char.isdigit() or char == ".":
+            float_found += char
+
+    return float(float_found)
 
 async def get_day_numbers_list(update: Update, context: ContextTypes.DEFAULT_TYPE, program_id):
     raw_json_program = database.get_program_details(program_id)
