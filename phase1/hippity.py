@@ -427,7 +427,7 @@ async def handle_log(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if "program_id" not in logged_data:
         program_id = check_for_int_in_user_message(message.text)
 
-        if program_id == "":
+        if not isinstance(program_id, int):
             await update.message.reply_text("Please enter the exact ID number of the program you followed.")
             return
 
@@ -454,7 +454,7 @@ async def handle_log(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         day_number = check_for_int_in_user_message(message.text)
 
-        if day_number == "":
+        if not isinstance(day_number,int):
             await update.message.reply_text("Please type the value of the exact day of the program you followed.")
             return
 
@@ -470,7 +470,7 @@ async def handle_log(update: Update, context: ContextTypes.DEFAULT_TYPE):
     workout_id = database.log_session(logged_data["program_id"], user_id, logged_data["day_number"])
 
     if "performance" not in logged_data:
-        global weight, reps, rir, set_number
+        
         exercises = await get_exercises(update, context, logged_data["program_id"], logged_data["day_number"])
         for ex in exercises:
 
@@ -486,7 +486,7 @@ async def handle_log(update: Update, context: ContextTypes.DEFAULT_TYPE):
                             logged_data[f"access_weight_on_set_{set_number}_on_{ex['name']}_flag"] = True
                             return
                         elif isinstance(check_for_float_in_user_message(message.text), float):
-                            weight = check_for_float_in_user_message(message.text)
+                            logged_data["weight"] = check_for_float_in_user_message(message.text)
                             logged_data[f"weight_for_set_{set_number}_on_{ex['name']}_flag"] = True
                             await update.message.reply_text(f"Enter reps for set {set_number}")
                             return
@@ -495,7 +495,7 @@ async def handle_log(update: Update, context: ContextTypes.DEFAULT_TYPE):
                             return
                     elif f"reps_on_set_{set_number}_on_{ex['name']}_flag" not in logged_data:
                         if isinstance(check_for_int_in_user_message(message.text), int):
-                            reps = check_for_int_in_user_message(message.text)
+                            logged_data["reps"] = check_for_int_in_user_message(message.text)
                             logged_data[f"reps_on_set_{set_number}_on_{ex['name']}_flag"] = True
                             await update.message.reply_text(f"Enter RIR for set {set_number}")
                             return
@@ -504,10 +504,10 @@ async def handle_log(update: Update, context: ContextTypes.DEFAULT_TYPE):
                             return
                     elif f"rir_on_set_{set_number}_on_{ex['name']}_flag" not in logged_data:
                             if isinstance(check_for_int_in_user_message(message.text), int):
-                                rir = check_for_int_in_user_message(message.text)
+                                logged_data["rir"] = check_for_int_in_user_message(message.text)
                                 logged_data[f"rir_on_set_{set_number}_on_{ex['name']}_flag"] = True
                                 logged_data[f"set_{set_number}_on_{ex['name']}_flag"] = True
-                                database.save_set(workout_id, ex["name"], set_number, reps, weight, rir)
+                                database.save_set(workout_id, ex["name"], set_number, logged_data["reps"], logged_data["weight"], logged_data["rir"])
                 else:
                     continue
 
@@ -531,7 +531,11 @@ def check_for_int_in_user_message(message):
         if char.isdigit():
             int_found += char
 
-    return int(int_found)
+    try:
+        return int(int_found)
+    except ValueError:
+        return int_found
+
 
 def check_for_float_in_user_message(message):
     float_found = ""
@@ -540,7 +544,10 @@ def check_for_float_in_user_message(message):
         if char.isdigit() or char == ".":
             float_found += char
 
-    return float(float_found)
+    try:
+        return float(float_found)
+    except ValueError:
+        return float_found
 
 async def get_day_numbers_list(update: Update, context: ContextTypes.DEFAULT_TYPE, program_id):
     raw_json_program = database.get_program_details(program_id)
