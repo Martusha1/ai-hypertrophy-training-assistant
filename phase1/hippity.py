@@ -458,7 +458,7 @@ async def handle_log(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.message.reply_text("Please type the value of the exact day of the program you followed.")
             return
 
-        all_day_numbers = await get_day_numbers_list(update, context, logged_data["program_id"])
+        all_day_numbers = get_day_numbers_list(logged_data["program_id"])
 
         if day_number not in all_day_numbers:
             await update.message.reply_text("No such day number in your program.")
@@ -490,6 +490,9 @@ async def handle_log(update: Update, context: ContextTypes.DEFAULT_TYPE):
                             logged_data[f"weight_for_set_{set_number}_on_{ex['name']}_flag"] = True
                             await update.message.reply_text(f"Enter reps for set {set_number}")
                             return
+                        elif isinstance(check_for_int_in_user_message(message.text), list):
+                            await update.message.reply_text("Please type only the value for the weight.")
+                            return
                         else:
                             await update.message.reply_text("Please enter a value for the weight.")
                             return
@@ -498,6 +501,9 @@ async def handle_log(update: Update, context: ContextTypes.DEFAULT_TYPE):
                             logged_data["reps"] = check_for_int_in_user_message(message.text)
                             logged_data[f"reps_on_set_{set_number}_on_{ex['name']}_flag"] = True
                             await update.message.reply_text(f"Enter RIR for set {set_number}")
+                            return
+                        elif isinstance(check_for_int_in_user_message(message.text), list):
+                            await update.message.reply_text("Please type only the value of the reps.")
                             return
                         else:
                             await update.message.reply_text("Please enter a value for the reps.")
@@ -508,6 +514,12 @@ async def handle_log(update: Update, context: ContextTypes.DEFAULT_TYPE):
                                 logged_data[f"rir_on_set_{set_number}_on_{ex['name']}_flag"] = True
                                 logged_data[f"set_{set_number}_on_{ex['name']}_flag"] = True
                                 database.save_set(workout_id, ex["name"], set_number, logged_data["reps"], logged_data["weight"], logged_data["rir"])
+                            elif isinstance(check_for_int_in_user_message(message.text), list):
+                                await update.message.reply_text("Please type only the value of the RIR.")
+                                return
+                            else:
+                                await update.message.reply_text("Please enter a value for the RIR.")
+                                return
                 else:
                     continue
 
@@ -525,31 +537,46 @@ async def get_exercises(update: Update, context: ContextTypes.DEFAULT_TYPE, prog
             return day["exercises"]
 
 def check_for_int_in_user_message(message):
-    int_found = ""
+    ints_found = []
+    chars_found = False
 
-    for char in message:
-        if char.isdigit():
-            int_found += char
+    tokens = message.split()
+    for token in tokens:
+        try:
+            if len(ints_found) < 2:
+                ints_found.append(int(token))
+            else:
+                return ints_found
+        except ValueError:
+            chars_found = True
+            continue
 
-    try:
-        return int(int_found)
-    except ValueError:
-        return int_found
+    if not ints_found or len(ints_found) > 1 or chars_found is True:
+        return ints_found
 
+    return int(ints_found[0])
 
 def check_for_float_in_user_message(message):
-    float_found = ""
+    floats_found = []
+    chars_found = False
+    
+    tokens = message.split()
+    for token in tokens:
+        try:
+            if len(floats_found) < 2:
+                floats_found.append(float(token))
+            else:
+                return floats_found
+        except ValueError:
+            chars_found = True
+            continue
 
-    for char in message:
-        if char.isdigit() or char == ".":
-            float_found += char
+    if not floats_found or len(floats_found) > 1 or chars_found is True:
+        return floats_found
+    
+    return float(floats_found[0])
 
-    try:
-        return float(float_found)
-    except ValueError:
-        return float_found
-
-async def get_day_numbers_list(update: Update, context: ContextTypes.DEFAULT_TYPE, program_id):
+def get_day_numbers_list(program_id):
     raw_json_program = database.get_program_details(program_id)
     
     formatted_p = json.loads(raw_json_program)
