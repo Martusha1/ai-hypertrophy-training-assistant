@@ -490,11 +490,8 @@ async def handle_log(update: Update, context: ContextTypes.DEFAULT_TYPE):
                             logged_data[f"weight_for_set_{set_number}_on_{ex['name']}_flag"] = True
                             await update.message.reply_text(f"Enter reps for set {set_number}")
                             return
-                        elif isinstance(check_for_int_in_user_message(message.text), list):
-                            await update.message.reply_text("Please type only the value for the weight.")
-                            return
                         else:
-                            await update.message.reply_text("Please enter a value for the weight.")
+                            await update.message.reply_text("Please type only the value for the weight (use a dot for expressing decimals).")
                             return
                     elif f"reps_on_set_{set_number}_on_{ex['name']}_flag" not in logged_data:
                         if isinstance(check_for_int_in_user_message(message.text), int):
@@ -502,11 +499,8 @@ async def handle_log(update: Update, context: ContextTypes.DEFAULT_TYPE):
                             logged_data[f"reps_on_set_{set_number}_on_{ex['name']}_flag"] = True
                             await update.message.reply_text(f"Enter RIR for set {set_number}")
                             return
-                        elif isinstance(check_for_int_in_user_message(message.text), list):
-                            await update.message.reply_text("Please type only the value of the reps.")
-                            return
                         else:
-                            await update.message.reply_text("Please enter a value for the reps.")
+                            await update.message.reply_text("Please type only the value for the reps.")
                             return
                     elif f"rir_on_set_{set_number}_on_{ex['name']}_flag" not in logged_data:
                             if isinstance(check_for_int_in_user_message(message.text), int):
@@ -514,11 +508,8 @@ async def handle_log(update: Update, context: ContextTypes.DEFAULT_TYPE):
                                 logged_data[f"rir_on_set_{set_number}_on_{ex['name']}_flag"] = True
                                 logged_data[f"set_{set_number}_on_{ex['name']}_flag"] = True
                                 database.save_set(workout_id, ex["name"], set_number, logged_data["reps"], logged_data["weight"], logged_data["rir"])
-                            elif isinstance(check_for_int_in_user_message(message.text), list):
-                                await update.message.reply_text("Please type only the value of the RIR.")
-                                return
                             else:
-                                await update.message.reply_text("Please enter a value for the RIR.")
+                                await update.message.reply_text("Please type only the value for the RIR.")
                                 return
                 else:
                     continue
