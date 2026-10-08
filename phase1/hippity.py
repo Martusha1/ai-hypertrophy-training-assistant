@@ -467,7 +467,9 @@ async def handle_log(update: Update, context: ContextTypes.DEFAULT_TYPE):
         logged_data["day_number"] = day_number
         await update.message.reply_text("Alright, I will go over all the exercises and ask you about everything.")
 
-    workout_id = database.log_session(logged_data["program_id"], user_id, logged_data["day_number"])
+    if "workout_id" not in logged_data:
+        workout_id = database.log_session(logged_data["program_id"], user_id, logged_data["day_number"])
+        logged_data["workout_id"] = workout_id
 
     if "performance" not in logged_data:
         
@@ -507,7 +509,7 @@ async def handle_log(update: Update, context: ContextTypes.DEFAULT_TYPE):
                                 logged_data["rir"] = check_for_int_in_user_message(message.text)
                                 logged_data[f"rir_on_set_{set_number}_on_{ex['name']}_flag"] = True
                                 logged_data[f"set_{set_number}_on_{ex['name']}_flag"] = True
-                                database.save_set(workout_id, ex["name"].lower(), set_number, logged_data["reps"], logged_data["weight"], logged_data["rir"])
+                                database.save_set(logged_data["workout_id"], ex["name"].lower(), set_number, logged_data["reps"], logged_data["weight"], logged_data["rir"])
                             else:
                                 await update.message.reply_text("Please type only the value for the RIR.")
                                 return
