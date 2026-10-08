@@ -183,8 +183,8 @@ async def yes_command(update: Update, context: ContextTypes.DEFAULT_TYPE): # app
         user_id = database.get_user_by_telegram_id(telegram_id)
         formatted_p = json.loads(context.chat_data["programs"][0])
         database.save_program(user_id, formatted_p)
-        await update.message.reply_text("""Your new program has been saved. Use '/program' \
-to preview your current program.""")
+        await update.message.reply_text("""Your new program has been saved. Use /my_programs \
+to preview all your saved programs.""")
         del context.chat_data["programs"]
         return
 
@@ -248,10 +248,10 @@ the registration process and tell Hippity more about yourself.""")
         if display_ready_program is None:
             del program_history["programs"]
             return
+
+        await update.message.reply_text(display_ready_program)
         await update.message.reply_text("""Your new program is done. Please review it \
 and let me know if I should save it by writing '/yes' or '/no' if you would like a new one.""")
-        
-        await update.message.reply_text(display_ready_program)
 
 async def parse_and_display_program(update: Update, context: ContextTypes.DEFAULT_TYPE, program):
     try:
@@ -369,7 +369,7 @@ their corresponding ID.""")
     user_programs = database.get_program_ids_by_user(user_id)
 
     try:
-        program_id = int(context.args[-1])
+        program_id = int(context.args[0])
 
         if user_programs is None:
             await update.message.reply_text("No saved programs yet.")
@@ -507,7 +507,7 @@ async def handle_log(update: Update, context: ContextTypes.DEFAULT_TYPE):
                                 logged_data["rir"] = check_for_int_in_user_message(message.text)
                                 logged_data[f"rir_on_set_{set_number}_on_{ex['name']}_flag"] = True
                                 logged_data[f"set_{set_number}_on_{ex['name']}_flag"] = True
-                                database.save_set(workout_id, ex["name"], set_number, logged_data["reps"], logged_data["weight"], logged_data["rir"])
+                                database.save_set(workout_id, ex["name"].lower(), set_number, logged_data["reps"], logged_data["weight"], logged_data["rir"])
                             else:
                                 await update.message.reply_text("Please type only the value for the RIR.")
                                 return
@@ -579,6 +579,26 @@ def get_day_numbers_list(program_id):
         
     return all_day_numbers
 
+async def progress_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not context.args:
+        await update.message.reply_text("""Please call this command by including the name of exercise you want to \
+check your progress in.""")
+        return
+
+    exercise = ""
+    for word in context.args:
+        exercise += word
+        exercise += " "
+    exercise = exercise[:-1]
+
+    progress_decision = database.check_progress(exercise.lower())
+    if not progress_decision:
+        await update.message.reply_text("This exercise doesn't exist. Please refer to the exact way this exercise \
+is written in your program. Use /show_command with the corresponding program id to see how your exercise was saved.")
+        context.args = []
+        return
+
+    await update.message.reply_text(progress_decision)
 
 def main():
     application = Application.builder().token(bot_token).build()
@@ -594,6 +614,7 @@ def main():
     application.add_handler(CommandHandler("my_programs", my_programs_command))
     application.add_handler(CommandHandler("show_program", show_program_command))
     application.add_handler(CommandHandler("log", log_command))
+    application.add_handler(CommandHandler("progress", progress_command))
 
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, router_func))
 
