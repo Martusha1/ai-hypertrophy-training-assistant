@@ -199,6 +199,10 @@ def check_progress(exercise_name):
 """, (exercise_name, ))
     
     sessions = cursor.fetchall() # returns a tuple of tuples
+
+    if not sessions:
+        conn.close()
+        return sessions
     
     ex_history = {}
     for w in sessions:
