@@ -65,7 +65,8 @@ His/her goal is {user["goal"]}. Remember the following gradual warmup: 'Warm-up 
       }}
     }}
   ]
-}} Return only the JSON. Ensure the JSON is valid and complete. Double-check all brackets and braces are closed." No explanation, no commentary before or after. """
+}} Return only the JSON. Ensure the JSON is valid and complete. Double-check all brackets and braces are closed." No explanation, no commentary before or after. \
+Remain brief throughout."""
 
     return instruction
 
