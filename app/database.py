@@ -312,6 +312,7 @@ def check_progress(exercise_name):
                                     advice_list.append(f"Reps on set {curr_set_number} are the same as last time while your RIR is also the same or worse.")
                                     continue
                             else:
+                                advice_list.append(f"Reps on set {curr_set_number} are less relative to the same set last time.")
                                 continue
                     elif curr_weight >= prev_weight - (1/5) * prev_weight and curr_weight <= (99/100) * prev_weight: # less weight than last time
                         if curr_reps >= 4:
