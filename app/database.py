@@ -235,126 +235,125 @@ def check_progress(exercise_name):
     prev_top_set_weight = previous_session[0][2]
     prev_top_set_rir = previous_session[0][3]
 
+    advice_list = []
+
     if curr_top_set_weight >= prev_top_set_weight - (1/5) * prev_top_set_weight: # checking valid top set conditions
         if curr_top_set_reps >= 4:
-            if curr_top_set_rir <= 2:
-                if curr_top_set_rir >= prev_top_set_rir:
-                    if curr_top_set_weight > prev_top_set_weight:
-                        if curr_top_set_reps >= 4:
-                                progress = True
-                        else:
-                            progress = False
-                    elif curr_top_set_weight == prev_top_set_weight:
-                        if curr_top_set_reps > prev_top_set_reps:
+            if 0 <= curr_top_set_rir <= 2:
+                if curr_top_set_weight > prev_top_set_weight:
+                    progress = True
+                elif curr_top_set_weight == prev_top_set_weight:
+                    if curr_top_set_reps > prev_top_set_reps:
                             progress = True
-                        elif curr_top_set_reps == prev_top_set_reps:
-                            progress = False
+                    elif curr_top_set_reps == prev_top_set_reps:
+                        if curr_top_set_rir > prev_top_set_rir:
+                            progress = True
                         else:
                             progress = False
                     else:
                         progress = False
-                    for curr_output, prev_output in zip(current_session[1:], previous_session[1:]): # referring to all sets after 1st set by pairing them to check remaining conditions
-                        # pairs look approx. like this:
-                        # curr_output = (2, 7, 100.0, 1)
-                        # prev_output = (2, 5, 100.0, 1)
+                else:
+                    progress = False
 
-                        curr_set_number = curr_output[0]
-                        curr_reps = curr_output[1]
-                        curr_weight = curr_output[2]
-                        curr_rir = curr_output[3]
+                if progress is False:
+                    advice_list.append("No improvement in top set perormance.")
+                
+                for curr_output, prev_output in zip(current_session[1:], previous_session[1:]): # referring to all sets after 1st set by pairing them to check remaining conditions
+                    # pairs look approx. like this:
+                    # curr_output = (2, 7, 100.0, 1)
+                    # prev_output = (2, 5, 100.0, 1)
 
-                        prev_reps = prev_output[1]
-                        prev_weight = prev_output[2]
+                    curr_set_number = curr_output[0]
+                    curr_reps = curr_output[1]
+                    curr_weight = curr_output[2]
+                    curr_rir = curr_output[3]
 
-                        # Branching out different weight and reps scenarios
-                        if curr_weight > prev_weight: # more weight than last time means only rep count must be valid
-                            if curr_reps >= 4: # minimum rep count check
-                                    if 0 <= curr_rir <= 2: # effort check
-                                        progress = True
-                                        continue
-                                    else:
-                                        conn.close()
-                                        return f"Too little effort on set {curr_set_number} - aim for RIR of 0-2 reps in order to achieve enough mechanical tension."
-                            else:
-                                conn.close()
-                                return f"Reps too low on set {curr_set_number} - possible acute fatigue."
-                        elif curr_weight == prev_weight: # same weight as last time
-                            if curr_top_set_reps > prev_top_set_reps: # rep count must be valid relative to last time, thus in the worst case not drop too much
-                                if curr_reps >= prev_reps - 3: # valid rep difference check
-                                    if curr_reps <= curr_top_set_reps: # reps must naturally decline if top set was truly at high intensity
-                                        if 0 <= curr_rir <= 2:
-                                            progress = True
-                                            continue
-                                        else:
-                                            conn.close()
-                                            return f"Too little effort on set {curr_set_number} - aim for RIR of 0-2 reps in order to achieve enough mechanical tension."                                    
-                                    else: # top set was underperformed and a later set came up better
-                                        if 0 <= curr_rir <= 2:
-                                            progress = True
-                                            print(f"Beware that set {curr_set_number} was better than your top set. Please warm up efficiently before your top set to avoid injury.")
-                                            continue
-                                        else:
-                                            conn.close()
-                                            return f"Too little effort on set {curr_set_number} - aim for RIR of 0-2 reps in order to achieve enough mechanical tension."
+                    prev_reps = prev_output[1]
+                    prev_weight = prev_output[2]
+                    prev_rir = prev_output[3]
+
+
+                    # Branching out different weight and reps scenarios
+                    if curr_weight > prev_weight: # more weight than last time means only rep count and rir must be valid
+                        if curr_reps >= 4: # minimum rep count check
+                                if 0 <= curr_rir <= 2: # effort check
+                                    progress = True
+                                    continue
                                 else:
-                                    conn.close()
-                                    return f"Reps too low on set {curr_set_number} - possible acute fatigue."
-                            elif curr_top_set_reps == prev_top_set_reps:
-                                if curr_reps > prev_reps:
-                                    if 0 <= curr_rir <= 2:
-                                        progress = True
-                                        print(f"Beware that set {curr_set_number} was better than your top set. Please warm up efficiently before your top set to avoid injury.")
-                                        continue
-                                    else:
-                                        conn.close()
-                                        return f"Too little effort on set {curr_set_number} - aim for RIR of 0-2 reps in order to achieve enough mechanical tension."
-                                elif curr_reps >= prev_reps - 3:
-                                    if 0 <= curr_rir <= 2:                                        
-                                        continue # no progress yet but rest of sets must be checked for progress
-                                    else:
-                                        conn.close()
-                                        return f"Too little effort on set {curr_set_number} - aim for RIR of 0-2 reps in order to achieve enough mechanical tension."
-                                else:
-                                    conn.close()
-                                    return f"Reps too low on set {curr_set_number} - possible acute fatigue."
-                            else:
-                                conn.close()
-                                return "Top set reps didn't improve. Go for a lighter weight."
-                        elif curr_weight >= prev_weight - (1/5) * prev_weight and curr_weight <= (99/100) * prev_weight: # less weight than last time
+                                    advice_list.append(f"Too little effort on set {curr_set_number} - aim for RIR of 0-2 reps in order to achieve enough mechanical tension.")
+                                    continue
+                        else:
+                            advice_list.append(f"Reps too low on set {curr_set_number} - possible acute fatigue.")
+                    elif curr_weight == prev_weight: # same weight as last time
+                        if progress is True: # then only check if reps and rir are valid
                             if curr_reps >= 4:
                                 if 0 <= curr_rir <= 2:
-                                    curr_one_rep_max = curr_weight * (1+curr_reps/30)
-                                    prev_one_rep_max = prev_weight * (1+prev_reps/30)
-                                    if curr_one_rep_max > prev_one_rep_max:
-                                        progress = True
-                                        continue
-                                    else:
-                                        conn.close()
-                                        return f"Based on e1RM, your performance decreased on set {curr_set_number}."
+                                    continue
+                                else:
+                                    advice_list.append(f"Too little effort on set {curr_set_number} - aim for RIR of 0-2 reps in order to achieve enough mechanical tension.")
+                                    continue
+                            else:
+                                advice_list.append(f"Reps too low on set {curr_set_number} - possible acute fatigue.") # deload indicator
+                                continue
+                        else:
+                            if curr_reps > prev_reps: # sometimes better reps in later sets relative to last session's top set
+                                if 0 <= curr_rir <= 2:
+                                    advice_list.append(f"Performance improved on set {curr_set_number} rather than in the top set. Make sure you warm up efficiently to minimize injury risk.")
+                                    progress = True
+                                    continue
+                                else:
+                                    advice_list.append(f"Performance improved on set {curr_set_number} rather than in the top set. Make sure you warm up efficiently to minimize injury risk. However, too little effort on set {curr_set_number} - aim for RIR of 0-2 reps in order to achieve enough mechanical tension.")
+                                    continue
+                            elif curr_reps == prev_reps:
+                                if curr_rir > prev_rir:
+                                    progress = True
+                                    continue
+                                else:
+                                    advice_list.append(f"Reps on set {curr_set_number} are the same as last time while your RIR is also the same or worse.")
+                                    continue
+                            else:
+                                continue
+                    elif curr_weight >= prev_weight - (1/5) * prev_weight and curr_weight <= (99/100) * prev_weight: # less weight than last time
+                        if curr_reps >= 4:
+                            if 0 <= curr_rir <= 2:
+                                curr_one_rep_max = curr_weight * (1+curr_reps/30)
+                                prev_one_rep_max = prev_weight * (1+prev_reps/30)
+                                if curr_one_rep_max > prev_one_rep_max:
+                                    progress = True
+                                    continue
                                 else:
                                     conn.close()
-                                    return f"Too little effort on set {curr_set_number}."
+                                    advice_list.append(f"Based on e1RM, your performance decreased on set {curr_set_number}.")
                             else:
                                 conn.close()
-                                return f"Reps too low on set {curr_set_number} - possible acute fatigue."
+                                advice_list.append(f"Too little effort on set {curr_set_number}.")
                         else:
                             conn.close()
-                            return f"Weight dropped too much. Drop no more than 20% of your usual working set load if possible."
-                    if progress:
-                        conn.close()
-                        return "Progressive overload achieved!"
+                            advice_list.append(f"Reps too low on set {curr_set_number} - possible acute fatigue.")
                     else:
                         conn.close()
-                        return "Performance maintained - you achieved the same number of reps and effort as last time."
+                        advice_list.append(f"Weight dropped too much on set {curr_set_number}. Drop no more than 20% of your usual working set load if possible.")
+
+                # for loop ends here
+                end_verdict = ""
+                for advice in advice_list:
+                    end_verdict += f"{advice} "
+                
+                if progress and advice_list == []:
+                    conn.close()
+                    return "Progressive overload achieved!"
+                elif progress and advice_list:
+                    conn.close()
+                    return end_verdict + "However, progressive overload was still achieved!"
                 else:
                     conn.close()
-                    return "Top set didn't improve. Your RIR got worse - it took more effort to lift the same volume you lifted last time."
+                    return end_verdict + "Therefore, progressive overload was not achieved."
             else:
                 conn.close()
                 return "Top set didn't improve. Your RIR is over 2 - you left too much in the tank. Go for 0 to 2 reps close to failure."
         else:
             conn.close()
-            return "Rep count too low. You possibly picked a weight too heavy for you. Go lighter."
+            return "Rep count too low on top set. You possibly picked a weight too heavy for you. Go lighter."
     else:
         conn.close()
         return "Top set didn't improve. Weight dropped too much. Drop no more than 20 percent of your usual working set load if possible."
