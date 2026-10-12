@@ -20,15 +20,15 @@ Hippity is an AI-powered training assistant that generates personalized hypertro
 
 Hippity is really two independent programs sharing one SQLite database — they are **not** connected to each other at runtime, and only one (`hippity.py`) is part of the live user-facing flow right now:
 
-**`hippity.py`** — the Telegram bot. This is what a user actually talks to. Run with `python3 hippity.py` from inside `phase1/`. All of its logic — commands, conversation, registration, program generation, workout logging — talks directly to `database.py` and `program_generator.py`.
+**`hippity.py`** — the Telegram bot. This is what a user actually talks to. Run with `python3 hippity.py` from inside `app/`. All of its logic — commands, conversation, registration, program generation, workout logging — talks directly to `database.py` and `program_generator.py`.
 
-**`main.py`** — a FastAPI backend exposing a few endpoints (`/programs`, `/progress/{exercise_name}`, `/session/log/{program_id}/{user_id}/{day_number}`) over the same database. It was built as a FastAPI learning exercise and demonstrates the same data being served over HTTP, but the bot never calls it — nothing currently connects the two. Run separately with `uvicorn phase1.main:app --reload` from the repo root, if you want to explore it via its interactive docs at `/docs`. (Known issue: `/programs` currently calls `database.get_all_programs_by_user()` without the `user_id` argument the function now requires, so that endpoint will error until fixed.)
+**`main.py`** — a FastAPI backend exposing a few endpoints (`/programs`, `/progress/{exercise_name}`, `/session/log/{program_id}/{user_id}/{day_number}`) over the same database. It was built as a FastAPI learning exercise and demonstrates the same data being served over HTTP, but the bot never calls it — nothing currently connects the two. Run separately with `uvicorn app.main:app --reload` from the repo root, if you want to explore it via its interactive docs at `/docs`. (Known issue: `/programs` currently calls `database.get_all_programs_by_user()` without the `user_id` argument the function now requires, so that endpoint will error until fixed.)
 
 ## Project structure
 
 ```
-phase0/   Early standalone scripts — first steps with core training math (1RM, volume, progression logic) and a first LLM API call
-phase1/   The actual application
+prototypes/   Early standalone scripts — first steps with core training math (1RM, volume, progression logic) and a first LLM API call
+app/   The actual application
   ├─ database.py           SQLite data layer (users, programs, sessions, exercises) — multi-user aware via telegram_id
   ├─ program_generator.py  Hippity's identity/system prompt (`define_llm`), program-prompt building (`build_system_prompt`), and the single consolidated Groq call (`call_llm`) used by every LLM-driven feature — general chat, registration extraction, program generation, correction, and the correction-intent classifier
   ├─ main.py                FastAPI app exposing some backend data as HTTP endpoints (see above — not wired to the bot)
@@ -78,16 +78,16 @@ phase1/   The actual application
    ```
 3. Initialize the database (creates `hypertrophy.db` with all tables):
    ```
-   python -m phase1.database
+   python -m app.database
    ```
 4. Run the Telegram bot (the main interface):
    ```
-   cd phase1
+   cd app
    python3 hippity.py
    ```
 5. (Optional) Run the standalone FastAPI backend:
    ```
-   uvicorn phase1.main:app --reload
+   uvicorn app.main:app --reload
    ```
 
 ## Roadmap
