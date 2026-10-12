@@ -2,7 +2,7 @@
 
 Hippity is an AI-powered training assistant that generates personalized hypertrophy (muscle growth) programs and helps track workout progress over time. It combines an LLM (via Groq) with a structured database of programs, sessions, and exercises, delivered through a Telegram bot and a FastAPI backend.
 
-**Status: actively in development.** Multi-user registration is fully working end-to-end — a new user describes themselves in plain language, Hippity extracts a structured profile via the LLM, asks follow-up questions for anything missing, shows the extracted data for review, and saves it to the database on `/yes`. General conversation has per-chat memory and is grounded by a system prompt describing Hippity's identity and commands, so it can accurately describe itself instead of guessing. `/new_program` generates a full training program from a saved profile, shows it to the user, and lets them either approve it (`/yes`) or just describe what they didn't like in plain text — an LLM call classifies whether that reply is an actual correction request, an implicit approval, or unrelated chatter, and responds accordingly. `/my_programs` lists a user's saved programs by id, and `/show_program <id>` pulls one back up on demand — both check that the requested program actually belongs to the requesting user before showing anything. `/log` walks a user through logging a completed workout session (program, day, then weight/reps/RIR per set) as a guided, strictly-parsed step-by-step flow rather than free-text LLM extraction, and resumes correctly if the conversation is interrupted mid-log. `/progress <exercise>` and `/changeprofile` are still open.
+**Status: actively in development.** Multi-user registration is fully working end-to-end — a new user describes themselves in plain language, Hippity extracts a structured profile via the LLM, asks follow-up questions for anything missing, shows the extracted data for review, and saves it to the database via `/yes`. General conversation has per-chat memory and is grounded by a system prompt describing Hippity's identity and commands, so it can accurately describe itself instead of guessing. `/new_program` generates a full training program from a saved profile, shows it to the user, and lets them either approve it (`/yes`) or just describe what they didn't like in plain text — an LLM call classifies whether that reply is an actual correction request, an implicit approval, or unrelated chatter, and responds accordingly. `/my_programs` lists a user's saved programs by id, and `/show_program <id>` pulls one back up on demand — both check that the requested program actually belongs to the requesting user before showing anything. `/log` walks a user through logging a completed workout session (program, day, then weight/reps/RIR per set) as a guided, strictly-parsed step-by-step flow rather than free-text LLM extraction, and resumes correctly if the conversation is interrupted mid-log. `/progress <exercise>` and `/changeprofile` are still open.
 
 ## What it does (or is being built to do)
 
@@ -16,14 +16,6 @@ Hippity is an AI-powered training assistant that generates personalized hypertro
 - Includes a rules-based progressive-overload check (`database.check_progress`) that compares a session's logged sets against the previous one using rep, weight, and RIR thresholds — not yet wired to a command
 - Separately exposes some of that same data over a small FastAPI backend (endpoints to fetch programs, check exercise progress, log sessions)
 
-## Two separate entry points
-
-Hippity is really two independent programs sharing one SQLite database — they are **not** connected to each other at runtime, and only one (`hippity.py`) is part of the live user-facing flow right now:
-
-**`hippity.py`** — the Telegram bot. This is what a user actually talks to. Run with `python3 hippity.py` from inside `app/`. All of its logic — commands, conversation, registration, program generation, workout logging — talks directly to `database.py` and `program_generator.py`.
-
-**`main.py`** — a FastAPI backend exposing a few endpoints (`/programs`, `/progress/{exercise_name}`, `/session/log/{program_id}/{user_id}/{day_number}`) over the same database. It was built as a FastAPI learning exercise and demonstrates the same data being served over HTTP, but the bot never calls it — nothing currently connects the two. Run separately with `uvicorn app.main:app --reload` from the repo root, if you want to explore it via its interactive docs at `/docs`. (Known issue: `/programs` currently calls `database.get_all_programs_by_user()` without the `user_id` argument the function now requires, so that endpoint will error until fixed.)
-
 ## Project structure
 
 ```
@@ -31,7 +23,6 @@ prototypes/   Early standalone scripts — first steps with core training math (
 app/   The actual application
   ├─ database.py           SQLite data layer (users, programs, sessions, exercises) — multi-user aware via telegram_id
   ├─ program_generator.py  Hippity's identity/system prompt (`define_llm`), program-prompt building (`build_system_prompt`), and the single consolidated Groq call (`call_llm`) used by every LLM-driven feature — general chat, registration extraction, program generation, correction, and the correction-intent classifier
-  ├─ main.py                FastAPI app exposing some backend data as HTTP endpoints (see above — not wired to the bot)
   ├─ hippity.py             The Telegram bot — commands, routing, conversation memory, registration, program generation/correction, program lookup, and workout logging
   └─ session_logger.py      CLI script for logging a workout session
 ```
@@ -42,7 +33,6 @@ app/   The actual application
 - **SQLite** — data storage
 - **Groq API** (currently `openai/gpt-oss-20b`) — LLM integration for conversation, structured profile/program extraction, program generation and correction, and correction-intent classification
 - **python-telegram-bot** — Telegram bot interface
-- **FastAPI** — a secondary, currently standalone API layer over the same database
 
 ## Database schema
 
@@ -85,17 +75,12 @@ app/   The actual application
    cd app
    python3 hippity.py
    ```
-5. (Optional) Run the standalone FastAPI backend:
-   ```
-   uvicorn app.main:app --reload
-   ```
+
 
 ## Roadmap
 
-- [ ] Wire up `/progress <exercise>` to `database.check_progress()`, which already implements the rep/weight/RIR progressive-overload logic
+- [ ] Add basic tests around progress logic
 - [ ] Add `/changeprofile` — same free-text extraction approach as registration, but seeded with the user's existing profile and requiring a preview/confirm step before overwriting
-- [ ] Persist conversation history to the database so it survives a bot restart
-- [ ] Decide whether the free-text "it's fine, save it" shortcut during program review should stay a quiet convenience or become a documented, intentional part of the command flow
-- [ ] Add a defensive `try`/`except` around the JSON parsing in `/yes`'s program-save path, as a second line of defense beyond the upstream state-clearing fix
+- [ ] Feed scientific research to LLM for better program evaluation and advice
+- [ ] Add basic tests around progress logic
 - [ ] Consider sending an approved program as a PDF, for a more durable copy than plain chat text
-- [ ] Add basic tests around database and program generation logic
