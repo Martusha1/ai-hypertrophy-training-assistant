@@ -181,12 +181,17 @@ async def yes_command(update: Update, context: ContextTypes.DEFAULT_TYPE): # app
     if "programs" in context.chat_data:
         telegram_id = update.effective_user.id
         user_id = database.get_user_by_telegram_id(telegram_id)
-        formatted_p = json.loads(context.chat_data["programs"][0])
-        database.save_program(user_id, formatted_p)
-        await update.message.reply_text("""Your new program has been saved. Use /my_programs \
+        try:
+            formatted_p = json.loads(context.chat_data["programs"][0])
+            database.save_program(user_id, formatted_p)
+            await update.message.reply_text("""Your new program has been saved. Use /my_programs \
 to preview all your saved programs.""")
-        del context.chat_data["programs"]
-        return
+            del context.chat_data["programs"]
+            return
+        except ValueError:
+            await update.message.reply_text("There was an error with saving your program. Please generate a new one with /new_program.")
+            del context.chat_data["programs"]
+            return
 
     if "registration" in context.chat_data: # mid-registration check
         registrated_data = context.chat_data["registration"]
