@@ -186,7 +186,7 @@ def save_set(workout_id, exercise_name, set_number, reps_done, weight_kg, rir):
 
     return cursor.lastrowid # return new set id
 
-def check_progress(exercise_name):
+def check_progress(exercise_name, deload_indicator):
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
 
@@ -202,7 +202,7 @@ def check_progress(exercise_name):
 
     if not sessions:
         conn.close()
-        return sessions
+        return sessions, deload_indicator
     
     ex_history = {}
     for w in sessions:
@@ -217,7 +217,7 @@ def check_progress(exercise_name):
     ex_history_list = list(ex_history.values())
 
     if len(ex_history_list) < 2:
-        return "Not enough sessions to determine if progress is achieved. Please have at least 2 logged sessions."
+        return "Not enough sessions to determine if progress is achieved. Please have at least 2 logged sessions.", deload_indicator
 
     # conditions for trueness of progressive overload:
     # top set must improve, maintain or have more rir
@@ -236,7 +236,7 @@ def check_progress(exercise_name):
     prev_top_set_rir = previous_session[0][3]
 
     advice_list = []
-
+    
     if curr_top_set_weight >= prev_top_set_weight - (1/5) * prev_top_set_weight: # checking valid top set conditions
         if curr_top_set_reps >= 4:
             if 0 <= curr_top_set_rir <= 2:
@@ -284,6 +284,7 @@ def check_progress(exercise_name):
                                     continue
                         else:
                             advice_list.append(f"Reps too low on set {curr_set_number} - possible acute fatigue.")
+                            deload_indicator += 1
                     elif curr_weight == prev_weight: # same weight as last time
                         if progress is True: # then only check if reps and rir are valid
                             if curr_reps >= 4:
@@ -293,7 +294,8 @@ def check_progress(exercise_name):
                                     advice_list.append(f"Too little effort on set {curr_set_number} - aim for RIR of 0-2 reps in order to achieve enough mechanical tension.")
                                     continue
                             else:
-                                advice_list.append(f"Reps too low on set {curr_set_number} - possible acute fatigue.") # deload indicator
+                                advice_list.append(f"Reps too low on set {curr_set_number} - possible acute fatigue.")
+                                deload_indicator += 1
                                 continue
                         else:
                             if curr_reps > prev_reps: # sometimes better reps in later sets relative to last session's top set
@@ -313,8 +315,9 @@ def check_progress(exercise_name):
                                     continue
                             else:
                                 advice_list.append(f"Reps on set {curr_set_number} are less relative to the same set last time.")
+                                deload_indicator += 1
                                 continue
-                    elif curr_weight >= prev_weight - (1/5) * prev_weight and curr_weight <= (99/100) * prev_weight: # less weight than last time
+                    elif curr_weight >= prev_weight - (1/5) * prev_weight and curr_weight <= (0.9999) * prev_weight: # less weight than last time
                         if curr_reps >= 4:
                             if 0 <= curr_rir <= 2:
                                 curr_one_rep_max = curr_weight * (1+curr_reps/30)
@@ -323,16 +326,14 @@ def check_progress(exercise_name):
                                     progress = True
                                     continue
                                 else:
-                                    conn.close()
                                     advice_list.append(f"Based on e1RM, your performance decreased on set {curr_set_number}.")
+                                    deload_indicator += 1
                             else:
-                                conn.close()
                                 advice_list.append(f"Too little effort on set {curr_set_number}.")
                         else:
-                            conn.close()
                             advice_list.append(f"Reps too low on set {curr_set_number} - possible acute fatigue.")
+                            deload_indicator += 1
                     else:
-                        conn.close()
                         advice_list.append(f"Weight dropped too much on set {curr_set_number}. Drop no more than 20% of your usual working set load if possible.")
 
                 # for loop ends here
@@ -342,23 +343,25 @@ def check_progress(exercise_name):
                 
                 if progress and advice_list == []:
                     conn.close()
-                    return "Progressive overload achieved!"
+                    return "Progressive overload achieved!", deload_indicator
                 elif progress and advice_list:
                     conn.close()
-                    return end_verdict + "However, progressive overload was still achieved!"
+                    return end_verdict + "However, progressive overload was still achieved!", deload_indicator
                 else:
                     conn.close()
-                    return end_verdict + "Therefore, progressive overload was not achieved."
+                    return end_verdict + "Therefore, progressive overload was not achieved.", deload_indicator
             else:
                 conn.close()
-                return "Top set didn't improve. Your RIR is over 2 - you left too much in the tank. Go for 0 to 2 reps close to failure."
+                return "Top set didn't improve. Your RIR is over 2 - you left too much in the tank. Go for 0 to 2 reps close to failure.", deload_indicator
         else:
             conn.close()
-            return "Rep count too low on top set. You possibly picked a weight too heavy for you. Go lighter."
+            deload_indicator += 1
+            return "Rep count too low on top set. You possibly picked a weight too heavy for you. Go lighter.", deload_indicator
     else:
         conn.close()
-        return "Top set didn't improve. Weight dropped too much. Drop no more than 20 percent of your usual working set load if possible."
-
+        deload_indicator += 1
+        return "Top set didn't improve. Weight dropped too much. Drop no more than 20 percent of your usual working set load if possible.", deload_indicator
+    
 
 def init_db():
     conn = sqlite3.connect("hypertrophy.db")

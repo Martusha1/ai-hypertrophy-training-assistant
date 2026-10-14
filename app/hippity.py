@@ -46,7 +46,8 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 /show_program : shows contents of a program of choice
 /new_program : Hippity generates a new program based on your needs
 /log : allows you to log your workout session details (sets, reps, RIR)
-/progress <exercise> : checks if progressive overload is achieved in an exercise of your choice
+/progress <exercise> : checks if progressive overload is achieved in an exercise of your choice \
+while also tracking if performance declines in order to suggest a deload
 """)
 
 async def info_command(update: Update, context: ContextTypes.DEFAULT_TYPE): # summarizes the bot's purpose in short
@@ -172,6 +173,9 @@ async def cancel_command(update: Update, context: ContextTypes.DEFAULT_TYPE): # 
     elif "programs" in context.chat_data:
         del context.chat_data["programs"]
         await update.message.reply_text("New program discussion cancelled!")
+    elif "log" in context.chat_data:
+        del context.chat_data["log"]
+        await update.message.reply_text("Workout logging process cancelled.")
     else:
         await update.message.reply_text("""You haven't done anything that utilizes this command. \
 You can use it to stop registration and new program generation processes.""")
@@ -413,7 +417,7 @@ async def log_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     else: # temporary solution for testing in case flags get wrong values and i need fast reset
         del context.chat_data["log"]
         context.chat_data["log"] = {}
-        
+
 
     await my_programs_command(update, context)
     await update.message.reply_text("Please choose the one you followed for your workout by its ID.")
@@ -592,13 +596,16 @@ async def progress_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 check your progress in.""")
         return
 
+    if "deload_indicator" not in context.bot_data:
+        context.bot_data["deload_indicator"] = 0
+
     exercise = ""
     for word in context.args:
         exercise += word
         exercise += " "
     exercise = exercise[:-1]
 
-    progress_decision = database.check_progress(exercise.lower())
+    progress_decision, deload_indicator = database.check_progress(exercise.lower(), context.bot_data["deload_indicator"])
     if not progress_decision:
         await update.message.reply_text("This exercise doesn't exist. Please refer to the exact way this exercise \
 is written in your program. Use /show_command with the corresponding program id to see how your exercise was saved.")
@@ -606,6 +613,33 @@ is written in your program. Use /show_command with the corresponding program id 
         return
 
     await update.message.reply_text(progress_decision)
+
+    if deload_indicator > 4:
+        del context.bot_data["deload_indicator"]
+        await deload_advice(update, context)
+    print(deload_indicator)
+
+async def deload_advice(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    system_prompt = {"role": "system", "context": """The user has just checked if he achieved progressive overload \
+in his last workout. You already gave him your answer but as you were analyzing the data, you observed multiple declining \
+trends in his lift perfomance that could account for built-up muscle fatigue. Explain to the user what you have found and \
+why he might need to consider a deload. Tell him what a deload is by adressing how our muscles and nervous system fatigue \
+naturally as performance increases and suggest two deload methods: either a full week off or a standard deload week. \
+The full week off is not recommended, if the user is prone to losing his momentum when he stops training for a while. \
+The standard deload week is just a week of light training, same workout but cutting the intensity by 30-50%. Advise \
+him to just take that time to focus on technique. Explain two ways of going about deloads in the future: reactive vs \
+proactive deloads. Reactive deloads are based on the the user's own feeling of his performance. If it declines, then \
+a deload is necessary. However, this method is not recommended as it's pretty hard to discern whether or not our body \
+is worn out enough to deload because joint performance usually declines without you feeling it. Therefore, to decrease \
+risk of injury, it is recommended to schedule a deload once every 4-8 weeks. The more advanced you are, the more you \
+would have to deload because it's expected that you train harder to make progress, therefore you build more fatigue.
+"""}
+
+    user_prompt = {"role": "user", "context": "Explain deload to user."}
+
+    messages = [system_prompt, user_prompt]
+
+    await update.message.reply_text(program_generator.call_llm(messages))
 
 def main():
     application = Application.builder().token(bot_token).build()

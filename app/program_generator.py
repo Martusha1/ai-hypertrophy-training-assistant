@@ -29,7 +29,8 @@ he/she wants you to show; to view the exact program id, the user should first us
 /my_programs: lists all user programs and their exclusive id;s
 /new_program : you generate a new program based on the user's current profile
 /log : allows the user to log his/her workout session details (sets, reps, RIR)
-/progress <exercise> : checks if progressive overload is achieved in an exercise of user's choice
+/progress <exercise> : checks if progressive overload is achieved in an exercise of user's choice \
+and tracks declining performance to suggest a deload
 If the user wants to do anything that the commands already do, please point him/her towards using the commands ONLY since \
 the features don't work if users initialize them in freely through a text message because this is not yet supported."""}
 
