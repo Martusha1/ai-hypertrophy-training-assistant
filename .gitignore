@@ -4,3 +4,5 @@ hypertrophy.db
 __pycache__
 *.sqbpro
 .env
+__pycache__
+.pytest_cache
