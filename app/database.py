@@ -82,6 +82,22 @@ WHERE user_id = ?
 
     return user_dict
 
+def update_user(user_profile, user_id):
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+
+    cursor.execute("""
+        UPDATE users
+        SET name = ?, age = ?, training_experience = ?, training_days_per_week = ?,
+        session_length = ?, available_equipment = ?, goal = ?
+        WHERE user_id = ?;
+""",(user_profile["name"],user_profile["age"],user_profile["training experience"],
+    user_profile["training days per week"],user_profile["session length"],
+    user_profile["available equipment"],user_profile["goal"],user_id))
+
+    conn.commit()
+    conn.close()
+
 def save_program(user_id, formatted_program):
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
@@ -361,7 +377,7 @@ def check_progress(exercise_name, deload_indicator):
         conn.close()
         deload_indicator += 1
         return "Top set didn't improve. Weight dropped too much. Drop no more than 20 percent of your usual working set load if possible.", deload_indicator
-    
+
 
 def init_db():
     conn = sqlite3.connect("hypertrophy.db")

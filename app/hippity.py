@@ -101,15 +101,17 @@ async def fill_user_profile(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     message: Message = update.effective_message
 
-    # dict for keeping track of already registered/ missing data
-    registrated_user_data = context.chat_data["registration"]
+    if "change_profile" in context.chat_data:
+        registrated_user_data = context.chat_data["change_profile"]
+    else:
+        registrated_user_data = context.chat_data["registration"]
 
     # user message now contains user's newest reply + profile info he may have already given in a previous reply that still needs correction
     user_message_text = {"role": "user", "content": f"Known so far: {registrated_user_data}. Newest reply: {message.text}"}
     
     llm_response_behaviour = """Act as the user's personal coach in his/hers fitness-journey that \
-    specializes in hypertrophy training. You will create a training program according to the user's needs, \
-    characteristics and goals by first and foremost extracting his profile information from his message. \
+    specializes in hypertrophy training. You create training programs according to the user's needs, \
+    characteristics and goals by first and foremost extracting/updating his profile information from his message. \
     Your answer should produce a JSON string that follows the following structure:
     {
         "name": name of the user in string,
@@ -136,10 +138,9 @@ async def fill_user_profile(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         formatted_profile = json.loads(raw_json_profile)
     except ValueError:
-        print("JSON is probably faulty.")
+        await update.message.reply_text("An error has ocurred. Please try again.")
         return None
 
-    # update registered user data
     for key, value in formatted_profile.items():
         if key in ["missing_fields", "follow_up_message"]:
             continue
@@ -149,15 +150,15 @@ async def fill_user_profile(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if formatted_profile["missing_fields"]:
         await update.message.reply_text(f"{formatted_profile["follow_up_message"]}")
     else:
-        await update.message.reply_text("""Profile info extraction done. Please review \
-        your data and use /yes if you approve it and /no if something is wrong.""")
+        await update.message.reply_text("""Done. Please review your data and use /yes if you approve it \
+and /no if something is wrong.""")
         for key, value in formatted_profile.items():
             if key in ["missing_fields", "follow_up_message"]:
                 continue
             await update.message.reply_text(f"{key}: {value}")
 
 async def router_func(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if "registration" in context.chat_data: # user can fill his profile data only if /register was used in prior
+    if "registration" in context.chat_data or "change_profile" in context.chat_data:
         await fill_user_profile(update, context)
     elif "programs" in context.chat_data:
         await revise_program(update, context, context.chat_data["programs"])
@@ -170,6 +171,9 @@ async def cancel_command(update: Update, context: ContextTypes.DEFAULT_TYPE): # 
     if "registration" in context.chat_data:
         del context.chat_data["registration"]
         await update.message.reply_text("Registration cancelled!")
+    elif "change_profile" in context.chat_data:
+        del context.chat_data["change_profile"]
+        await update.message.reply_text("Profile update cancelled.")
     elif "programs" in context.chat_data:
         del context.chat_data["programs"]
         await update.message.reply_text("New program discussion cancelled!")
@@ -196,8 +200,7 @@ to preview all your saved programs.""")
             await update.message.reply_text("There was an error with saving your program. Please generate a new one with /new_program.")
             del context.chat_data["programs"]
             return
-
-    if "registration" in context.chat_data: # mid-registration check
+    elif "registration" in context.chat_data: # mid-registration check
         registrated_data = context.chat_data["registration"]
         for key, value in registrated_data.items(): # check if user entered /yes before profile is complete
             if key in ["missing_fields", "follow_up_message"]:
@@ -206,13 +209,25 @@ to preview all your saved programs.""")
                 await update.message.reply_text("""Please use this command to approve your registrated data \
 only after it's all been fully recorded.""")
                 return
-
-        user = update.effective_user
-        telegram_id = user.id
+        telegram_id = update.effective_user.id
         database.save_user(context.chat_data["registration"], telegram_id)
         del context.chat_data["registration"]
         await update.message.reply_text("""Your data has been successfuly saved! If you want me to draft a \
         personal training program according to your current profile, please write /new_program.""")
+    elif "change_profile" in context.chat_data:
+        new_user_data = context.chat_data["change_profile"]
+        for key, value in new_user_data.items():
+            if key in ["missing_fields", "follow_up_message"]:
+                continue
+            if value is None:
+                await update.message.reply_text("""Please use this command to approve your registrated data \
+only after it's all been fully recorded.""")
+                return
+        telegram_id = update.effective_user.id
+        user_id = database.get_user_by_telegram_id(telegram_id)
+        database.update_user(context.chat_data["change_profile"], user_id)
+        del context.chat_data["change_profile"]
+        await update.message.reply_text("Your profile data has been successfully updated.")
     else:
         await update.message.reply_text("""This command is only intended for approval of a \
         newly generated program or update in user profile data.""")
@@ -223,13 +238,12 @@ async def no_command(update: Update, context: ContextTypes.DEFAULT_TYPE): # deni
         await update.message.reply_text("""Please tell me exactly what you didn't like in the last \
 program so I can propose something more suitable for your needs.""")
         return
-
-    if "registration" in context.chat_data:
-        await update.message.reply_text("Please point out what exactly needs to be added or corrected to your data. \
-        You can also use /cancel to terminate the entire registration process.")
+    elif "registration" in context.chat_data or "change_profile" in context.chat_data:
+        await update.message.reply_text("Please point out what exactly needs to be corrected in your data. \
+You can also use /cancel to terminate this entire process.")
     else:
         await update.message.reply_text("""This command is only intended for denial of a \
-        newly generated program or update in user profile data.""")
+newly generated program or update in user profile data.""")
 
 async def new_program_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
@@ -605,7 +619,7 @@ check your progress in.""")
         exercise += " "
     exercise = exercise[:-1]
 
-    progress_decision, deload_indicator = database.check_progress(exercise.lower(), context.bot_data["deload_indicator"])
+    progress_decision, context.bot_data["deload_indicator"] = database.check_progress(exercise.lower(), context.bot_data["deload_indicator"])
     if not progress_decision:
         await update.message.reply_text("This exercise doesn't exist. Please refer to the exact way this exercise \
 is written in your program. Use /show_command with the corresponding program id to see how your exercise was saved.")
@@ -614,13 +628,12 @@ is written in your program. Use /show_command with the corresponding program id 
 
     await update.message.reply_text(progress_decision)
 
-    if deload_indicator > 4:
+    if context.bot_data["deload_indicator"] > 4:
         del context.bot_data["deload_indicator"]
         await deload_advice(update, context)
-    print(deload_indicator)
 
 async def deload_advice(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    system_prompt = {"role": "system", "context": """The user has just checked if he achieved progressive overload \
+    system_prompt = {"role": "system", "content": """The user has just checked if he achieved progressive overload \
 in his last workout. You already gave him your answer but as you were analyzing the data, you observed multiple declining \
 trends in his lift perfomance that could account for built-up muscle fatigue. Explain to the user what you have found and \
 why he might need to consider a deload. Tell him what a deload is by adressing how our muscles and nervous system fatigue \
@@ -635,11 +648,24 @@ risk of injury, it is recommended to schedule a deload once every 4-8 weeks. The
 would have to deload because it's expected that you train harder to make progress, therefore you build more fatigue.
 """}
 
-    user_prompt = {"role": "user", "context": "Explain deload to user."}
+    user_prompt = {"role": "user", "content": "Explain deload to user."}
 
     messages = [system_prompt, user_prompt]
 
     await update.message.reply_text(program_generator.call_llm(messages))
+
+async def change_profile_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    telegram_id = update.effective_user.id
+    user_id = database.get_user_by_telegram_id(telegram_id)
+
+    if not user_id:
+        update.message.reply_text("You haven't yet registered. Please use /register.")
+        return
+
+    if "change_profile" not in context.chat_data:
+        context.chat_data["change_profile"] = database.get_user_profile(user_id)
+
+    await no_command(update, context)
 
 def main():
     application = Application.builder().token(bot_token).build()
@@ -656,6 +682,7 @@ def main():
     application.add_handler(CommandHandler("show_program", show_program_command))
     application.add_handler(CommandHandler("log", log_command))
     application.add_handler(CommandHandler("progress", progress_command))
+    application.add_handler(CommandHandler("change_profile", change_profile_command))
 
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, router_func))
 
