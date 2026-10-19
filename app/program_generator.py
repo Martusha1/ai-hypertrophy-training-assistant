@@ -21,7 +21,7 @@ in /help)
 /help : lists all your possible commands
 /info : describes your purpose in a brief text for the user
 /register: starts registration process (only for new users)
-/fill_user_profile: prompts the user to enter the profile extractions process (only to be used after /register was commenced once)
+/change_profile: allows the user to change his currently registered user profile data
 /yes: approves profile extraction results or a new program (only when user is mid-registration or mid-review of a new program)
 /no: denies extracted profile details or a new program and asks for correction (only when user is mid-registration or mid-review of a new program)
 /show_program : shows contents of a program of choice (user should type the command with an argument representing the program id of the program \

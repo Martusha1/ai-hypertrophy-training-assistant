@@ -39,7 +39,7 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 /help : lists all possible commands in Hippity
 /info : describes Hippity's purpose
 /register: start registration process (only for new users)
-/fill_user_profile: tell Hippity more about yourself (use after /register)
+/change_profile: change pieces of your data
 /yes: approves profile extraction results or a new program
 /no: denies extracted profile details or a new program and asks for correction
 /my_programs: lists all your programs
