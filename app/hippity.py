@@ -83,7 +83,7 @@ async def register_command(update: Update, context: ContextTypes.DEFAULT_TYPE): 
 
     if isinstance(database.get_user_by_telegram_id(telegram_id),int):
         await update.message.reply_text("""You're already registered! \
-Use /changeprofile to update your info, or /program to see the current program you follow.""")
+Use /change_profile to update your info, or /program to see the current program you follow.""")
     else:
         chat_history["registration"] = {} # for signalling that chat is mid-registration
         await update.message.reply_text("""I am Hippity and I will gladly help in\
@@ -516,7 +516,7 @@ async def handle_log(update: Update, context: ContextTypes.DEFAULT_TYPE):
                             await update.message.reply_text(f"Enter reps for set {set_number}")
                             return
                         else:
-                            await update.message.reply_text("Please type only the value for the weight (use a dot for expressing decimals).")
+                            await update.message.reply_text("Please type only the value for the weight.")
                             return
                     elif f"reps_on_set_{set_number}_on_{ex['name']}_flag" not in logged_data:
                         if isinstance(check_for_int_in_user_message(message.text), int):
@@ -574,22 +574,49 @@ def check_for_int_in_user_message(message):
 
 def check_for_float_in_user_message(message):
     floats_found = []
-    chars_found = False
-    
+    invalid_input = False # for any input that's not only a decimal or an integer
+
     tokens = message.split()
     for token in tokens:
         try:
-            if len(floats_found) < 2:
+            if len(floats_found) < 2: # only one word allowed
                 floats_found.append(float(token))
             else:
                 return floats_found
         except ValueError:
-            chars_found = True
-            continue
+            prev = None
+            temp = ""
+            for char in token:
+                try:
+                    if isinstance(int(char),int):
+                        prev = char
+                        temp += char
+                        continue
+                    else:
+                        invalid_input = True
+                        break
+                except ValueError:
+                    if char == ',' and prev is None: # handles input like ',123'
+                        invalid_input = True
+                        break
+                    try:
+                        if char == ',' and isinstance(int(prev),int): # there must be a digit before the decimal point
+                            char = '.'
+                            prev = char
+                            temp += char
+                            continue
+                        else:
+                            invalid_input = True
+                            break
+                    except ValueError:
+                        invalid_input = True
+                        break
 
-    if not floats_found or len(floats_found) > 1 or chars_found is True:
+    if invalid_input is True:
         return floats_found
-    
+
+    floats_found.append(float(temp))
+
     return float(floats_found[0])
 
 def get_day_numbers_list(program_id):
@@ -659,7 +686,7 @@ async def change_profile_command(update: Update, context: ContextTypes.DEFAULT_T
     user_id = database.get_user_by_telegram_id(telegram_id)
 
     if not user_id:
-        update.message.reply_text("You haven't yet registered. Please use /register.")
+        await update.message.reply_text("You haven't yet registered. Please use /register.")
         return
 
     if "change_profile" not in context.chat_data:
